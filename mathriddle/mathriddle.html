@@ -11,16 +11,16 @@
     </head>
     <body>
     <main class="container">
-        <div class="answer_form">
-            <h3>Settings:</h3>
-            <label>Maximum Sum for Addition Problems</label>
-            <input id="max_sum" class="answer_form" type="number" min="0" value="20" />
-            <small>This will be automatically increased if it is less than the number of unique letters in your answer.</small>
-            <input id="live-check" name="live-check" type="checkbox" checked /><label for="live-check">Decode as you solve</label>
-        </div>
-        <br />
-        <br />
         <form class="answer_form" id="text_input_form">
+            <div class="answer_form">
+                <h3>Settings:</h3>
+                <label>Maximum Sum for Addition Problems</label>
+                <input id="max_sum" class="answer_form" type="number" min="0" max="1000000" value="20" />
+                <small>This will be automatically increased if it is less than the number of unique letters in your answer.</small>
+                <input id="live-check" name="live-check" type="checkbox" checked /><label for="live-check">Decode as you solve</label>
+            </div>
+            <br />
+            <br />
             <h3>Encode your riddle:</h3>
             <label class="answer_form">Riddle / Prompt:</label>
             <input id="riddle" class="answer_form" type="text" maxlength="200" value="Why was six afraid of seven?"/>
