@@ -14,14 +14,14 @@ function shuffle(array) {
     }
 }
 
-function encoded_letter_output(value){
-    let cell = $("<td>", {style: "padding:0px 2px 0px 2px; text-align:center"})
+function encoded_letter_output(value, element="<div class='coded-letter'>"){
+    let cell = $(element)
     if (value < 0){
         return cell
     }
     else {
-        let box = $("<div>", {style: "border: 2px solid gray; border-radius: 10px;"}).append($('<span>', {class: "code-value-"+value, style: "width:100%; font-size:x-large; font-weight:bold"}).text('\xA0'));
-        let code = $("<div>").append("<small>").text(value);
+        let box = $("<div class='coded-box'>").append($('<span>', {class: "code-value-"+value}).text("\xa0"));
+        let code = $("<span>").text(value);
         return cell.append([box, code])
     }
 }
@@ -43,32 +43,16 @@ function encoded_word_output_pdf(coded_word) {
 }
 
 function reset_form(){
-    var answer_elements = document.getElementsByClassName('answer_form');
-    for(var i=0; i < answer_elements.length; i++) {
-        answer_elements[i].style.display = "block";
-        // answer_elements[i].disabled = false;
-    }
-    document.getElementById('submit_button').style.display = "block";
-    document.getElementById('reset_button').style.display = "none";
-    document.getElementById('print_button').style.display = "none";
-    document.getElementById('riddle-output').style.display = "none";
-    document.getElementById('output').style.display = "none";
-    document.getElementById('math_problems').style.display = "none";
-    document.getElementById('decode').style.display = "none";
+    $('.answer_form').css({display: "block"});
+    $('#solve-container').css({display: "none"});
+
+    $('#output').empty();
+    $('#math_problems').empty();
 };
 
 function hide_form(){
-    var answer_elements = document.getElementsByClassName('answer_form');
-    for(var i=0; i < answer_elements.length; i++) {
-        answer_elements[i].style.display = "none";
-        // answer_elements[i].disabled = true;
-    }
-    document.getElementById('reset_button').style.display = "block";
-    document.getElementById('riddle-output').style.display = "block";
-    document.getElementById('output').style.display = "";
-    document.getElementById('print_button').style.display = "";
-    document.getElementById('math_problems').style.display = "block";
-    document.getElementById('decode').style.display = "block";
+    $('.answer_form').css({display: "none"});
+    $('#solve-container').css({display: "block"});
 }
 
 var reset_button = document.getElementById('reset_button');
@@ -119,45 +103,24 @@ class EncodedMessage {
         this.problems = this.chars.map((x) => new SumProblem(x, this.cipher.encode(x)));
     }
 
-    html_output(root, chars_per_line) {
-        // Coded message with line breaks
-        const coded_message = line_break(this.text, chars_per_line).map((x) => this.cipher.encode(x.split('')))
-        root.append(coded_message.map((x) => $("<tr>").append(x.map(encoded_letter_output))))
-
-        // return coded_message.map((x) => '<tr>'+x.map(encoded_letter_output).join('')+'</tr>').join('')
+    coded_message_output(root) {
+        const coded_words = this.text.split(' ').map((x) => this.cipher.encode(x.split(''))).map((x) => x.concat(this.cipher.encode([' '])))
+        let children = coded_words.map((x) => $("<div>", {class: "coded-word"}).append(x.map((y)=>encoded_letter_output(y))))
+        root.append(children)
+        for(let i=0; i<root.children().length; i++) {
+            root.children()[i].style.gridTemplateColumns = "repeat(" + (coded_words[i].length) + ", 1fr)";
+            root.children()[i].style.gridColumn = "span " + (coded_words[i].length);
+        }
     }
 
-    jquery_output(root, num_cols=4) {
-        let num_rows = Math.ceil(encoding.problems.length/(num_cols-1));
-        let grid = $('<div class="grid">');
-        for(let j=0; j < num_cols; j++) {
-            let col = $('<div>');
-            for(let i=0; i < num_rows; i++) {
-                const k = i*num_cols + j
-                if(k < this.problems.length){
-                    this.problems[k].jquery_output(col)
-                }
-            }
-            grid.append(col)
+    problems_output(root, num_cols=4) {
+        let grid=$('<div class="problems-grid">')
+        for(let i=0; i<this.problems.length; i++) {
+            let math_problem = $('<div class="problem-container">')
+            this.problems[i].jquery_output(math_problem)
+            grid.append(math_problem)
         }
         root.append(grid)
-    }
-
-    problems_dom_output(root, num_cols=4) {
-        let num_rows = Math.ceil(encoding.problems.length/(num_cols-1))
-        let grid = document.createElement("div")
-        grid.className="grid"
-        for(let j=0; j < num_cols; j++) {
-            let col = document.createElement("div")
-            for(let i=0; i < num_rows; i++) {
-                const k = i*num_cols + j
-                if(k < this.problems.length){
-                    this.problems[k].dom_output(col)
-                }
-            }
-            grid.appendChild(col)
-        }
-        root.appendChild(grid)
     }
 }
 
@@ -177,10 +140,10 @@ class SumProblem extends MathProblem {
 
     jquery_output(node) {
         node.append([
-            $("<div>").text(this.letter + ":"),
-            $("<div>", {style: "text-align:right"}).append($("<h3>").text(this.number_1)),
-            $("<div>", {style: "text-align:right; border-bottom:5px solid white"}).append($("<h3>").text("+ " + this.number_2)),
-            $("<div>", {style: "text-align:right"}).append($("<input>", {id: this.letter, type: "number", min: 0, style: "text-align:right"})),
+            $("<div>", {style: "text-align:left"}).text(this.letter + ":"),
+            $("<div>").append($("<h3>").text(this.number_1)),
+            $("<div>").append($("<h3>").text("+ " + this.number_2)),
+            $("<div>", {class: "answer-input"}).append($("<input>", {id: this.letter, type: "number", min: 0, style: "text-align:right"})),
         ]);
         return node
     }
@@ -212,9 +175,8 @@ textForm.addEventListener("submit", (e) => {
     encoding = new EncodedMessage(riddle, text, max_sum)
 
     $('#riddle-output').text(riddle);
-    // $('#output').html(encoding.html_output(15));
-    encoding.html_output($('#output'), 15)
-    encoding.jquery_output($('#math_problems'))
+    encoding.coded_message_output($("#output"))
+    encoding.problems_output($('#math_problems'))
 
     if(document.querySelector('#live-check').checked){
         for(var i=0; i<encoding.problems.length;i++){
