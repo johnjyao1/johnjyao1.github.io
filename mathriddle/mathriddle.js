@@ -14,22 +14,32 @@ function shuffle(array) {
     }
 }
 
-function encode(text, max_num) {
-    let chars = Array.from(new Set(text.split(' ').join('').split(''))).sort(); // unique letters from text
-    max_num = Math.max(max_num, chars.length); // unique letters from text
-    let number_pool = [...Array(Math.max(max_num)).keys()];
-    shuffle(number_pool)
-    const summation = number_pool.slice(0,this.num_letters);
-}
-
 function encoded_letter_output(value){
-    if (value == -1){
-        return '<td>    </td>'
+    let cell = $("<td>", {style: "padding:0px 2px 0px 2px; text-align:center"})
+    if (value < 0){
+        return cell
     }
     else {
-        return '<td style="text-align:center"><input class="code-value-' + value + '" type="text" maxlength="1" style="padding: 10px; text-align:center"/><small>'+ value + '</small></td>'
-    }    
+        let box = $("<div>", {style: "border: 2px solid gray; border-radius: 10px;"}).append($('<span>', {class: "code-value-"+value, style: "width:100%; font-size:x-large; font-weight:bold"}).text('\xA0'));
+        let code = $("<div>").append("<small>").text(value);
+        return cell.append([box, code])
+    }
+}
 
+function encoded_word_output_pdf(coded_word) {
+    coded_word_array = coded_word.map((x) => new Object({text: (x >= 0 ? x : ' '), alignment: 'center'}))
+    blanks = coded_word.map((x) => new Object({text: '____', color: (x >=0 ? 'black' : 'white')}))
+    output_obj = {
+        layout: 'noBorders',
+        table: {
+            heights: ['*', 30],
+            body: [
+                blanks,
+                coded_word_array,
+            ]
+        }
+    }
+    return output_obj
 }
 
 function reset_form(){
@@ -41,7 +51,7 @@ function reset_form(){
     document.getElementById('submit_button').style.display = "block";
     document.getElementById('reset_button').style.display = "none";
     document.getElementById('print_button').style.display = "none";
-    document.getElementById('riddle-container').style.display = "none";
+    document.getElementById('riddle-output').style.display = "none";
     document.getElementById('output').style.display = "none";
     document.getElementById('math_problems').style.display = "none";
     document.getElementById('decode').style.display = "none";
@@ -54,7 +64,7 @@ function hide_form(){
         // answer_elements[i].disabled = true;
     }
     document.getElementById('reset_button').style.display = "block";
-    document.getElementById('riddle-container').style.display = "block";
+    document.getElementById('riddle-output').style.display = "block";
     document.getElementById('output').style.display = "";
     document.getElementById('print_button').style.display = "";
     document.getElementById('math_problems').style.display = "block";
@@ -80,12 +90,15 @@ class SubCipher {
     }
 
     encode(plain_chars){
+        // plain_chars can be a single character or an array, but not a string
+        // so to encode a string 'MESSAGE' you should pass 'MESSAGE'.split('')
         if(!Array.isArray(plain_chars) && plain_chars.length == 1){
             return this.encrypt_map.get(plain_chars)
         }
         return plain_chars.map((x) => this.encrypt_map.get(x))
     }
     decode(cipher_chars){
+        // plain_chars can be a single object or an array
         if(!Array.isArray(cipher_chars)){
             return this.decrypt_map.get(cipher_chars)
         }
@@ -106,10 +119,45 @@ class EncodedMessage {
         this.problems = this.chars.map((x) => new SumProblem(x, this.cipher.encode(x)));
     }
 
-    html_output(chars_per_line) {
+    html_output(root, chars_per_line) {
         // Coded message with line breaks
         const coded_message = line_break(this.text, chars_per_line).map((x) => this.cipher.encode(x.split('')))
-        return coded_message.map((x) => '<tr>'+x.map(encoded_letter_output).join('')+'</tr>').join('')
+        root.append(coded_message.map((x) => $("<tr>").append(x.map(encoded_letter_output))))
+
+        // return coded_message.map((x) => '<tr>'+x.map(encoded_letter_output).join('')+'</tr>').join('')
+    }
+
+    jquery_output(root, num_cols=4) {
+        let num_rows = Math.ceil(encoding.problems.length/(num_cols-1));
+        let grid = $('<div class="grid">');
+        for(let j=0; j < num_cols; j++) {
+            let col = $('<div>');
+            for(let i=0; i < num_rows; i++) {
+                const k = i*num_cols + j
+                if(k < this.problems.length){
+                    this.problems[k].jquery_output(col)
+                }
+            }
+            grid.append(col)
+        }
+        root.append(grid)
+    }
+
+    problems_dom_output(root, num_cols=4) {
+        let num_rows = Math.ceil(encoding.problems.length/(num_cols-1))
+        let grid = document.createElement("div")
+        grid.className="grid"
+        for(let j=0; j < num_cols; j++) {
+            let col = document.createElement("div")
+            for(let i=0; i < num_rows; i++) {
+                const k = i*num_cols + j
+                if(k < this.problems.length){
+                    this.problems[k].dom_output(col)
+                }
+            }
+            grid.appendChild(col)
+        }
+        root.appendChild(grid)
     }
 }
 
@@ -127,47 +175,30 @@ class SumProblem extends MathProblem {
         this.number_2 = answer - this.number_1;
     }
 
-    html_output() {
-        var line = [
-            '<div>' + this.letter + ': </div>',
-            '<div style="text-align:right"><h3>' + this.number_1 + '</h3></div>',
-            '<div style="text-align:right"><h3> + ' + this.number_2 + '</h3></div>',
-            '<div style="text-align:right"><hr style="border-bottom:5px solid #ffffff" /></div>',
-            '<div><input id="' + this.letter + '" type="number" min=0 style="text-align:right"/></div>',
-        ]
-        return line.join('')    
+    jquery_output(node) {
+        node.append([
+            $("<div>").text(this.letter + ":"),
+            $("<div>", {style: "text-align:right"}).append($("<h3>").text(this.number_1)),
+            $("<div>", {style: "text-align:right; border-bottom:5px solid white"}).append($("<h3>").text("+ " + this.number_2)),
+            $("<div>", {style: "text-align:right"}).append($("<input>", {id: this.letter, type: "number", min: 0, style: "text-align:right"})),
+        ]);
+        return node
     }
 
-    pdf_output(small=false) {
-        if(small){
-            var sizes = {
-                letter: 10,
-                number: 15,
-                height: 20,
-            }
-        }else{
-            var sizes = {
-                letter: 15,
-                number: 20,
-                height: 40,
-            }
-        }
-        var no_border = Array(4).fill(false);
-        var bottom_border = [false, false, false, true];
-        var letter_cell = {text: this.letter+':', border: no_border, fontSize:sizes.letter};
-        var equation_cell = {text: this.number_1 + "\n+ " + this.number_2, alignment: "right", border: bottom_border, fontSize:sizes.number};
-        var empty_cell = {text:"", border:no_border};
-        var output_obj = {
-            table: {
-                heights: ['*', sizes.height],
-                widths: ['*', '*', 5],
-                body: [
-                    [letter_cell, equation_cell, empty_cell],
-                    [empty_cell, empty_cell, empty_cell],
-                ]
-            }
-        }
-        return output_obj    
+    pdf_output(sizes={letter: 15, number: 20, height: 40}) {
+        const no_border = [false, false, false, false];
+        const bottom_border = [false, false, false, true];
+        const empty_cell = {text:"", border:no_border};
+        let output = {table: {
+            heights: ['*', sizes.height],
+            widths: ['*', '*', 5],
+            body: [[], []]
+        }};
+        output.table.body[0].push({text: this.letter+':', border: no_border, fontSize:sizes.letter})
+        output.table.body[0].push({text: this.number_1 + "\n+ " + this.number_2, alignment: "right", border: bottom_border, fontSize:sizes.number})
+        output.table.body[0].push(empty_cell);
+        output.table.body[1] = [empty_cell, empty_cell, empty_cell]
+        return output
     }
 }
 
@@ -175,29 +206,15 @@ textForm.addEventListener("submit", (e) => {
     e.preventDefault()
 
     hide_form()
-    let max_sum = document.getElementById('max_sum').value; // maximum sum for addition problems
-    let text = document.getElementById('text').value.replace(/ +(?= )/g,'').toUpperCase(); // text to encode
-    let riddle = document.getElementById('riddle').value;
+    const max_sum = document.getElementById('max_sum').value; // maximum sum for addition problems
+    const text = document.getElementById('text').value.replace(/ +(?= )/g,'').toUpperCase(); // text to encode
+    const riddle = document.getElementById('riddle').value;
     encoding = new EncodedMessage(riddle, text, max_sum)
 
-    document.getElementById('riddle-output').innerHTML = encoding.riddle
-    document.getElementById('output').innerHTML = encoding.html_output(15);
-    output = []
-
-    num_cols = 4
-    num_rows = Math.ceil(encoding.problems.length/(num_cols-1))
-    for(var j=0; j < num_cols; j++) {
-        output.push([])
-        output[j].push('<div>')
-        for(var i=0; i < num_rows; i++) {
-            var k = i*num_cols + j
-            if(k < encoding.problems.length){
-                output[j].push(encoding.problems[k].html_output())
-            }
-        }
-        output[j].push('</div>')
-    }
-    document.getElementById('math_problems').innerHTML = '<div class="grid">' + output.map((x) => x.join('')).join('') + '</div>'; 
+    $('#riddle-output').text(riddle);
+    // $('#output').html(encoding.html_output(15));
+    encoding.html_output($('#output'), 15)
+    encoding.jquery_output($('#math_problems'))
 
     if(document.querySelector('#live-check').checked){
         for(var i=0; i<encoding.problems.length;i++){
@@ -224,7 +241,8 @@ textForm.addEventListener("submit", (e) => {
                 }
                 // fill in the letter for any corresponding code values (even if incorrect)
                 for(var j=0; j < code_values.length; j++) {
-                    code_values[j].value = letter;
+                    code_values[j].innerHTML = letter;
+                    // code_values[j].value = letter;
                 }
             });
         }
@@ -276,27 +294,13 @@ function vspace(height){
     return { layout: 'noBorders', table: {heights: [height], body: [[]]} }
 }
 
-function encoded_word_output_pdf(coded_word) {
-    coded_word_array = coded_word.map((x) => new Object({text: (x >= 0 ? x : ' '), alignment: 'center'}))
-    blanks = coded_word.map((x) => new Object({text: '____', color: (x >=0 ? 'black' : 'white')}))
-    output_obj = {
-        layout: 'noBorders',
-        table: {
-            heights: ['*', 30],
-            body: [
-                blanks,
-                coded_word_array,
-            ]
-        }
-    }
-    return output_obj
-}
+
 
 print_button.addEventListener("click", (e) => {
     e.preventDefault()
 
     let riddle = document.getElementById('riddle').value
-    text = document.getElementById('text').value.replace(/ +(?= )/g,'').toUpperCase(); // text to encode
+    let text = document.getElementById('text').value.replace(/ +(?= )/g,'').toUpperCase(); // text to encode
 
     pdfMake.fonts = {
             // download default Roboto font from cdnjs.com
@@ -307,23 +311,26 @@ print_button.addEventListener("click", (e) => {
         bolditalics: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-MediumItalic.ttf'
         },
     }
-    var small= (encoding.problems.length > 20)
-    if(small){
-        num_cols = 5
+    let sizes;
+    let num_cols;
+    if((encoding.problems.length > 20)){
+        num_cols = 5;
+        sizes={letter: 10, number: 15, height: 20}
     }
     else{
-        num_cols = 4
+        num_cols = 4;
+        sizes={letter: 15, number: 20, height: 40}
     }
     num_rows = Math.ceil(encoding.problems.length/num_cols)
     coded_message = line_break(text, 20).map((z) => encoding.cipher.encode(z.split('')))
 
     my_table = []
-    var k=1
-    for(var i=0; i < num_rows; i++) {
-        var row = []
-        for(var j=0; j < num_cols; j++) {
+    let k=0
+    for(let i=0; i < num_rows; i++) {
+        let row = []
+        for(let j=0; j < num_cols; j++) {
             if(k < encoding.problems.length){
-                row.push(encoding.problems[k].pdf_output(small=small))
+                row.push(encoding.problems[k].pdf_output(sizes=sizes))
             }else{
                 row.push("")
             }
