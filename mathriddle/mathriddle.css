@@ -1,0 +1,49 @@
+.coded-message{
+    display: grid;
+    grid-template-columns: repeat(auto-fill,50px);
+    gap: 10px;
+    grid-auto-flow: row;
+    margin: 30px 0px 30px 0px;
+}
+
+.coded-word{
+    display: grid;
+    gap: 10px;
+    grid-auto-flow: row;
+}
+
+.coded-letter{
+    text-align:center;
+}
+
+.coded-box{
+    border: 2px solid var(--pico-form-element-border-color); 
+    border-radius: 10px;
+    font-size:x-large;
+    font-weight:bold;
+    width:100%; 
+}
+
+.coded-letter span{
+    font-size:smaller;
+}
+
+.problems-grid{
+    display: grid;
+    grid-template-columns: repeat(auto-fill,200px);
+    gap: 10px;
+    grid-auto-flow: row;
+    margin: 0px 0px 30px 0px;
+}
+
+.problem-container{
+    border: 2px solid var(--pico-secondary-background);
+    border-radius: 10px;
+    padding: 20px;
+    text-align: right;
+}
+
+.answer-input {
+    padding-top: 5px;
+    border-top: 5px solid var(--pico-color); 
+}

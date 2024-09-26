@@ -5,45 +5,47 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
-    <!-- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/css/bootstrap.min.css" integrity="sha384-HSMxcRTRxnN+Bdg0JdbxYKrThecOKuH5zCYotlSAcp1+c8xmyTe9GYg1l9a69psu" crossorigin="anonymous"> -->
-    <!-- <link rel="stylesheet" href="../static/css/jyao_basic.css"> -->
+    <link rel="stylesheet" href="mathriddle.css">
      <title>Math Riddle</title>
     </head>
     <body>
     <main class="container">
-        <form class="answer_form" id="text_input_form">
-            <div class="answer_form">
-                <h3>Settings:</h3>
-                <label>Maximum Sum for Addition Problems</label>
-                <input id="max_sum" class="answer_form" type="number" min="0" max="1000000" value="20" />
-                <small>This will be automatically increased if it is less than the number of unique letters in your answer.</small>
-                <input id="live-check" name="live-check" type="checkbox" checked /><label for="live-check">Decode as you solve</label>
+        <div class="answer_form">
+            <form class="answer_form" id="text_input_form">
+                <h3>Encode your riddle or message:</h3>
+                <label class="answer_form">Riddle / Prompt:</label>
+                <input id="riddle" class="answer_form" type="text" maxlength="200" value="Why was six afraid of seven?"/>
+                <!-- <input id="riddle" type="text" maxlength="200" value="Secret Message:"/> -->
+                <label class="answer_form" style="display:block">Answer / Message:</label>
+                <input id="text" class="answer_form" type="text" maxlength="100" pattern="[a-z A-Z]+" value="Because seven ate nine" style="display:block"/>
+                <!-- <input id="text" class="answer_form" type="text" maxlength="100" pattern="[a-z A-Z]+" value="The quick red fox jumps over the lazy brown dog" style="display:block"/> -->
+                <small class="answer_form">Only letters and spaces, max 100 characters</small>
+
+                <details>
+                    <summary style="font-size: x-large;">Settings:</summary>
+                    <label>Maximum Sum for Addition Problems</label>
+                    <input id="max_sum" class="answer_form" type="number" min="0" value="20" />
+                    <small>This will be automatically increased if it is less than the number of unique letters in your answer.</small>
+                    <input id="live-check" name="live-check" type="checkbox" checked /><label for="live-check">Decode as you solve</label>
+                    <hr />
+                </details>
+    
+                <button id="submit_button" class="answer_form" type="submit">Submit</button>
+            </form>
+        </div>
+        <div id="solve-container" style="display:none">
+            <h3 id="riddle-output"></h3>
+            <div id="output" class="coded-message"></div>
+            <p>Solve the problems to decode the answer:</p>
+            <div id="math_problems" class="grid"></div>
+            <input type="button" id="decode" value="Decode"/>
+            <div class="grid">
+                <input type="button" class="secondary" id="reset_button" value="Reset"/>
+                <input type="button" class="contrast" id="print_button" value="Print"/>
             </div>
-            <br />
-            <br />
-            <h3>Encode your riddle:</h3>
-            <label class="answer_form">Riddle / Prompt:</label>
-            <input id="riddle" class="answer_form" type="text" maxlength="200" value="Why was six afraid of seven?"/>
-            <!-- <input id="riddle" type="text" maxlength="200" value="Secret Message:"/> -->
-            <label class="answer_form" style="display:block">Answer:</label>
-            <input id="text" class="answer_form" type="text" maxlength="100" pattern="[a-z A-Z]+" value="Because seven ate nine" style="display:block"/>
-            <!-- <input id="text" class="answer_form" type="text" maxlength="100" pattern="[a-z A-Z]+" value="The quick red fox jumps over the lazy brown dog" style="display:block"/> -->
-            <small class="answer_form">Only letters and spaces, max 100 characters</small>
-            <button id="submit_button" class="answer_form" type="submit">Submit</button>
-        </form>
-        <div class="grid">
-            <input type="button" class="secondary" id="reset_button" style="display:none" value="Reset"/>
-            <input type="button" class="contrast" id="print_button" style="display:none" value="Print"/>
         </div>
-        <div id="riddle-container">
-            <h3><div id="riddle-output"></div></h3>
-        </div>
-        <table id="output">
-        </table>
-        <div id="math_problems">
-        </div>
-        <input type="button" id="decode" style="display:none" value="Decode"/>
     </main>
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
     <script src="mathriddle.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.12/pdfmake.min.js"></script>
     </body>

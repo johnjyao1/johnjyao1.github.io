@@ -14,203 +14,201 @@ function shuffle(array) {
     }
 }
 
-function encode(text, max_sum) {
-    // encode text into a numbers from 0 up to max_sum 
-    // (or the number of unique letters if more than max_sum)
-    let unique_letters = Array.from(new Set(text.split(' ').join('').split(''))); // unique letters from text
-    let num_letters = unique_letters.length; // number of unique letters
-
-    let number_pool = [...Array(Math.max(num_letters, max_sum)).keys()];
-    shuffle(number_pool)
-    
-    let summation = number_pool.slice(0,num_letters);
-
-    let encoding = []
-    encoding.push({
-        letter: ' ',
-        number_1: NaN,
-        number_2: NaN,
-        sum: -1,    
-    })
-
-    for(var i=0; i < num_letters; i++) {
-        number_1 = Math.floor(Math.random() * summation[i]);
-        encoding.push({
-            letter: unique_letters[i],
-            number_1: number_1,
-            number_2: summation[i] - number_1,
-            sum: summation[i]
-        })
-    };
-    // encoding.sort()
-    encoding.sort((a, b) => {
-        const letter_1 = a.letter.toUpperCase();
-        const letter_2 = b.letter.toUpperCase();
-        if (letter_1 < letter_2) {
-            return -1;
-        }
-        if (letter_1 > letter_2) {
-            return 1;
-        }
-
-        return 0;
-    });
-    return encoding
-}
-
-function math_problem_output(object){
-    line = [
-        '<div>' + object.letter + ': </div>',
-        '<div style="text-align:right"><h3>' + object.number_1 + '</h3></div>',
-        '<div style="text-align:right"><h3> + ' + object.number_2 + '</h3></div>',
-        '<div style="text-align:right"><hr style="border-bottom:5px solid #ffffff" /></div>',
-        '<div><input id="' + object.letter + '" type="number" min=0 style="text-align:right"/></div>',
-    ]
-    return line.join('')
-}
-
-function encoded_letter_output(value){
-    if (value == -1){
-        return '<td>    </td>'
+function encoded_letter_output(value, element="<div class='coded-letter'>"){
+    let cell = $(element)
+    if (value < 0){
+        return cell
     }
     else {
-        return '<td style="text-align:center"><input class="code-value-' + value + '" type="text" maxlength="1" style="padding: 10px; text-align:center"/><small>'+ value + '</small></td>'
-    }    
+        let box = $("<div class='coded-box'>").append($('<span>', {class: "code-value-"+value}).text("\xa0"));
+        let code = $("<span>").text(value);
+        return cell.append([box, code])
+    }
+}
 
+function coded_message_pdfMake_table(coded_word) {
+    return {
+        layout: 'noBorders',
+        table: {
+            heights: ['*', 30],
+            body: [
+                // blanks
+                coded_word.map((x) => new Object({text: '____', color: (x >=0 ? 'black' : 'white')})),
+                // code values
+                coded_word.map((x) => new Object({text: (x >= 0 ? x : ' '), alignment: 'center'})),
+            ]
+        }
+    }
+}
+
+class SubCipher {
+    // Creates a substitution cipher
+    constructor(plain_chars, cipher_chars) {
+        this.encrypt_map = new Map;
+        this.decrypt_map = new Map;
+
+        for(var i=0; i<plain_chars.length; i++) {
+            this.encrypt_map.set(plain_chars[i], cipher_chars[i])
+            this.decrypt_map.set(cipher_chars[i], plain_chars[i])
+        }
+    }
+
+    encode(plain_chars){
+        // plain_chars can be a single character or an array, but not a string
+        // so to encode a string 'MESSAGE' you should pass 'MESSAGE'.split('')
+        if(!Array.isArray(plain_chars) && plain_chars.length == 1){
+            return this.encrypt_map.get(plain_chars)
+        }
+        return plain_chars.map((x) => this.encrypt_map.get(x))
+    }
+    decode(cipher_chars){
+        // plain_chars can be a single object or an array
+        if(!Array.isArray(cipher_chars)){
+            return this.decrypt_map.get(cipher_chars)
+        }
+        return cipher_chars.map((x) => this.decrypt_map.get(x))
+    }
+}
+
+class EncodedMessage {
+    constructor(riddle, text, max_num) {
+        this.riddle = riddle; // Text of the riddle/prompt
+        this.text = text; // Text of the answer/message -- this will be encoded
+        this.chars = Array.from(new Set(text.split(' ').join('').split(''))).sort(); // unique letters from text
+        
+        // Another way to deal with spaces and non-letter characters?
+        let number_pool = [...Array(Math.max(max_num, this.chars.length)).keys()];
+        shuffle(number_pool);
+        const summation = number_pool.slice(0,this.chars.length);
+        this.cipher = new SubCipher([' '].concat(this.chars), [-1].concat(summation));
+        this.problems = this.chars.map((x) => new AdditionProblem(x, this.cipher.encode(x)));
+    }
+
+    coded_message_output() {
+        // Split message text into words encode them, and append an (encoded) space at the end of each word
+        const coded_words = this.text.split(' ').map((x) => this.cipher.encode(x.split(''))).map((x) => x.concat(this.cipher.encode([' '])))
+        // For each word, generate a `div.coded-word` element that has, as children, a `div.coded-letter` element for each letter
+        // `children` is an array of jQuery `div.coded-word` elements
+        let children = coded_words.map((x) => $("<div>", {class: "coded-word"}).append(x.map((y)=>encoded_letter_output(y)))[0])
+        // For each 
+        for(let i=0; i<children.length; i++) {
+            children[i].style.gridTemplateColumns = "repeat(" + (coded_words[i].length) + ", 1fr)";
+            children[i].style.gridColumn = "span " + (coded_words[i].length);
+        }
+        return children
+    }
+
+    problems_output(num_cols=4) {
+        let grid=$('<div class="problems-grid">')
+        for(let i=0; i<this.problems.length; i++) {
+            grid.append(this.problems[i].dom_output())
+        }
+        return grid
+    }
+}
+
+class MathProblem {
+    constructor(letter, answer){
+        this.letter = letter;
+        this.answer = answer;
+    }
+}
+
+class AdditionProblem extends MathProblem {
+    constructor(letter, answer){
+        super(letter, answer);
+        this.number_1 = Math.floor(Math.random() * answer);
+        this.number_2 = answer - this.number_1;
+    }
+
+    dom_output() {
+        let container = $('<div class="problem-container">')
+        container.append([
+            $("<div>", {style: "text-align:left"}).text(this.letter + ":"),
+            $("<div>").append($("<h3>").text(this.number_1)),
+            $("<div>").append($("<h3>").text("+ " + this.number_2)),
+            $("<div>", {class: "answer-input"}).append($("<input>", {id: this.letter, type: "number", min: 0, style: "text-align:right"})),
+        ]);
+        return container
+    }
+
+    pdf_output(sizes={letter: 15, number: 20, height: 40}) {
+        const no_border = [false, false, false, false];
+        const bottom_border = [false, false, false, true];
+        const empty_cell = {text:"", border:no_border};
+        let output = {table: {
+            heights: ['*', sizes.height],
+            widths: ['*', '*', 5],
+            body: [[], []]
+        }};
+        output.table.body[0].push({text: this.letter+':', border: no_border, fontSize:sizes.letter})
+        output.table.body[0].push({text: this.number_1 + "\n+ " + this.number_2, alignment: "right", border: bottom_border, fontSize:sizes.number})
+        output.table.body[0].push(empty_cell);
+        output.table.body[1] = [empty_cell, empty_cell, empty_cell]
+        return output
+    }
 }
 
 function reset_form(){
-    var answer_elements = document.getElementsByClassName('answer_form');
-    for(var i=0; i < answer_elements.length; i++) {
-        answer_elements[i].style.display = "block";
-        // answer_elements[i].disabled = false;
-    }
-    document.getElementById('submit_button').style.display = "block";
-    document.getElementById('reset_button').style.display = "none";
-    document.getElementById('print_button').style.display = "none";
-    document.getElementById('riddle-container').style.display = "none";
-    document.getElementById('output').style.display = "none";
-    document.getElementById('math_problems').style.display = "none";
-    document.getElementById('decode').style.display = "none";
+    $('.answer_form').css({display: "block"});
+    $('#solve-container').css({display: "none"});
+
+    $('#output').empty();
+    $('#math_problems').empty();
 };
 
 function hide_form(){
-    var answer_elements = document.getElementsByClassName('answer_form');
-    for(var i=0; i < answer_elements.length; i++) {
-        answer_elements[i].style.display = "none";
-        // answer_elements[i].disabled = true;
-    }
-    document.getElementById('reset_button').style.display = "block";
-    document.getElementById('riddle-container').style.display = "block";
-    document.getElementById('output').style.display = "";
-    document.getElementById('print_button').style.display = "";
-    document.getElementById('math_problems').style.display = "block";
-    document.getElementById('decode').style.display = "block";
+    $('.answer_form').css({display: "none"});
+    $('#solve-container').css({display: "block"});
 }
 
-document.getElementById('reset_button').onclick=reset_form;
+function check(){
+    // checks all answers and populates letters in coded message boxes
+    // letters are populated whether or not they are correct
+    const answers = encoding.problems.map((x) => x.answer);
+    const letters = encoding.problems.map((x) => x.letter)
+    const inputs = letters.map((x) => $('#'+x)[0]);
+    
+    // clear all letters from coded message
+    $('div.coded-box').children().text('\xa0')
+    for(let i=0; i<inputs.length; i++){
+        if(!!inputs[i].value){
+            $('.code-value-'+inputs[i].value).text(letters[i]) // add letter to matching code values (even if incorrect)
+            // change input border color if correct/incorrect/empty
+            if(inputs[i].value != answers[i]){
+                inputs[i].style.borderColor = "var(--pico-form-element-invalid-active-border-color)";
+            }else{
+                inputs[i].style.borderColor = "var(--pico-form-element-valid-active-border-color)";
+            }
+        }else{
+            inputs[i].style.borderColor = "var(--pico-form-element-border-color)";
+        }
+    }
+}
 
-var textForm = document.getElementById('text_input_form');
-var print_button = document.getElementById('print_button')
+var print_button = document.getElementById('print_button');
 
+$('#reset_button').on("click", reset_form);
 
-
-textForm.addEventListener("submit", (e) => {
+$('#text_input_form').on("submit", (e) => {
     e.preventDefault()
 
     hide_form()
-    let max_sum = document.getElementById('max_sum').value; // maximum sum for addition problems
-    let text = document.getElementById('text').value.replace(/ +(?= )/g,'').toUpperCase(); // text to encode
-    let riddle = document.getElementById('riddle').value;
+    const max_sum = $('#max_sum')[0].value; // maximum sum for addition problems
+    const text = $('#text')[0].value.replace(/ +(?= )/g,'').toUpperCase(); // text to encode
+    const riddle = $('#riddle')[0].value;
+    encoding = new EncodedMessage(riddle, text, max_sum)
 
-    encoding = encode(text, max_sum)
-    document.getElementById('riddle-output').innerHTML = riddle
+    $('#riddle-output').text(riddle);
+    $("#output").append(encoding.coded_message_output())
+    $("#math_problems").append(encoding.problems_output())
 
-    var message = line_break(text, 15)
-    var coded_message = message.map((z) => z.split('').map((x) => String(encoding.filter((y) => y.letter == x)[0].sum)));
-    var coded_message_output = [];
-    for(var i=0; i < coded_message.length; i++) {
-        coded_message_output.push('<tr>')
-        for(var j=0; j < coded_message[i].length; j++){
-            coded_message_output.push(encoded_letter_output(coded_message[i][j]))
-        }
-        coded_message_output.push('</tr>')
-    }
-
-    document.getElementById('output').innerHTML = coded_message_output.join('');
-    output = []
-
-    num_cols = 4
-    num_rows = Math.ceil(encoding.length/(num_cols-1))
-    for(var j=0; j < num_cols; j++) {
-        output.push([])
-        output[j].push('<div>')
-        for(var i=0; i < num_rows; i++) {
-            var k = i*num_cols + j+1
-            if(k > 0 && k < encoding.length){
-                console.log('i=' + i + ' j=' + j + ' k=' + k + ' letter: ' + encoding[k].letter)
-                output[j].push(math_problem_output(encoding[k]))
-                // output.push('<div><h2>' + encoding[k].letter + ':</h2> <div style="text-align:right"><h3>' + encoding[k].number_1 + '</h3></div><div style="text-align:right"><h3> + ' + encoding[k].number_2 + '</h3></div><div><input id="' + coded_message[i] + '" type="number"/></div>')
-                // output.push('<div><h2>' + encoding[k].letter + ':</h2> <br><h3>' + encoding[k].number_1 + " + " + encoding[k].number_2 + ' =</h3> <input id="' + coded_message[i] + '" type="number"/></div>')
-            }
-        }
-        output[j].push('</div>')
-    }
-    document.getElementById('math_problems').innerHTML = '<div class="grid">' + output.map((x) => x.join('')).join('') + '</div>'; 
-
-    if(document.querySelector('#live-check').checked){
-        for(var i=1; i<encoding.length;i++){
-            document.getElementById(encoding[i].letter).addEventListener("change", (e) => {
-                e.preventDefault()
-                var letter = e.currentTarget.id
-
-                // Get the 
-                var index = encoding.map((x) => x.letter).indexOf(letter)
-                var answer_input = e.currentTarget
-                var answer_value = answer_input.value
-                var code_values = document.getElementsByClassName('code-value-' + answer_value)
-
-                // change the color of the answer input field if it's correct/incorrect/empty
-                if(!!answer_value){
-                    if(answer_value != encoding[index].sum){
-                        answer_input.style.borderColor = "red";
-                    }
-                    else{
-                        answer_input.style.borderColor = "green";
-                    }
-                }else{
-                    answer_input.style.borderColor = "gray";
-                }
-                // fill in the letter for any corresponding code values (even if incorrect)
-                for(var j=0; j < code_values.length; j++) {
-                    code_values[j].value = letter;
-                }
-            });
+    if($('#live-check')[0].checked){
+        for(let i=0; i<encoding.problems.length; i++) {
+            $('#'+encoding.problems[i].letter).on("change", check);
         }
     }
-    document.querySelector('#decode').addEventListener("click", (e) => {
-        e.preventDefault
-        for(var i=1; i<encoding.length;i++){
-            var answer_input = document.getElementById(encoding[i].letter)
-            var answer_value = answer.value
-            var code_values = document.getElementsByClassName('code-value-' + answer_value)
-            // change the color of the answer input field if it's correct/incorrect/empty
-            if(!!answer_value){
-                if(answer_value != encoding[index].sum){
-                    answer_input.style.borderColor = "red";
-                }
-                else{
-                    answer_input.style.borderColor = "green";
-                }
-            }else{
-                answer_input.style.borderColor = "gray";
-            }
-            // fill in the letter for any corresponding code values (even if incorrect)
-            for(var j=0; j < code_values.length; j++) {
-                code_values[j].value = encoding[i].letter;
-            }
-        }
-    });
+    $('#decode').on("click", check)
 });
 
 
@@ -232,80 +230,13 @@ function line_break(text, line_length) {
 }
 
 function vspace(height){
-    return {
-        layout: 'noBorders',
-        table: {
-            heights: [height],
-            body: [[]]
-        }
-    }
+    return { layout: 'noBorders', table: {heights: [height], body: [[]]} }
 }
 
-
-function encoded_word_output_pdf(coded_word) {
-    console.log(coded_word)
-    coded_word_array = []
-    blanks = []
-    for(i=0; i<coded_word.length;i++){
-        if(coded_word[i] != -1){
-            coded_word_array.push({text: coded_word[i], alignment: 'center'})
-            blanks.push('____')    
-        }else{
-            coded_word_array.push('     ')
-            blanks.push({text: '____', color: 'white'})
-        }
-    }
-    output_obj = {
-        layout: 'noBorders',
-        table: {
-            heights: ['*', 30],
-            body: [
-                blanks,
-                coded_word_array,
-            ]
-        }
-    }
-    return output_obj
-}
-
-function math_problem_output_pdf(object, small=False) {
-    if(small){
-        sizes = {
-            letter: 10,
-            number: 15,
-            height: 20,
-        }
-    }else{
-        sizes = {
-            letter: 15,
-            number: 20,
-            height: 40,
-        }
-    }
-    no_border = Array(4).fill(false)
-    bottom_border = [false, false, false, true]
-    letter_cell = {text: object.letter+':', border: no_border, fontSize:sizes.letter}
-    equation_cell = {text: object.number_1 + "\n+ " + object.number_2, alignment: "right", border: bottom_border, fontSize:sizes.number}
-    empty_cell = {text:"", border:no_border}
-    output_obj = {
-        table: {
-            heights: ['*', sizes.height],
-            widths: ['*', '*', 5],
-            body: [
-                [letter_cell, equation_cell, empty_cell],
-                [empty_cell, empty_cell, empty_cell],
-            ]
-        }
-    }
-    return output_obj
-}
- 
-
-print_button.addEventListener("click", (e) => {
-    e.preventDefault()
+$('#print_button').on("click", (e) => {
 
     let riddle = document.getElementById('riddle').value
-    text = document.getElementById('text').value.replace(/ +(?= )/g,'').toUpperCase(); // text to encode
+    let text = document.getElementById('text').value.replace(/ +(?= )/g,'').toUpperCase(); // text to encode
 
     pdfMake.fonts = {
             // download default Roboto font from cdnjs.com
@@ -316,24 +247,26 @@ print_button.addEventListener("click", (e) => {
         bolditalics: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-MediumItalic.ttf'
         },
     }
-    var small= (encoding.length > 20)
-    if(small){
-        num_cols = 5
+    let sizes;
+    let num_cols;
+    if((encoding.problems.length > 20)){
+        num_cols = 5;
+        sizes={letter: 10, number: 15, height: 20}
     }
     else{
-        num_cols = 4
+        num_cols = 4;
+        sizes={letter: 15, number: 20, height: 40}
     }
-    num_rows = Math.ceil(encoding.length/num_cols)
-    // math_probs_output = []
-    coded_message = line_break(text, 20).map((z) => z.split('').map((x) => String(encoding.filter((y) => y.letter == x)[0].sum)))
+    num_rows = Math.ceil(encoding.problems.length/num_cols)
+    coded_message = line_break(text, 20).map((z) => encoding.cipher.encode(z.split('')))
 
     my_table = []
-    var k=1
-    for(var i=0; i < num_rows; i++) {
-        var row = []
-        for(var j=0; j < num_cols; j++) {
-            if(k < encoding.length){
-                row.push(math_problem_output_pdf(encoding[k], small=small))
+    let k=0
+    for(let i=0; i < num_rows; i++) {
+        let row = []
+        for(let j=0; j < num_cols; j++) {
+            if(k < encoding.problems.length){
+                row.push(encoding.problems[k].pdf_output(sizes=sizes))
             }else{
                 row.push("")
             }
@@ -347,40 +280,17 @@ print_button.addEventListener("click", (e) => {
         content: [
             {text: riddle, fontSize: 20},
             vspace(50),
-            // {
-            //     layout: 'noBorders',
-            //     table: {
-            //         body: my_coded_message_output
-            //     }
-            // },
         ]
     };
-    // message = coded_message.map()
-    docDefinition.content = docDefinition.content.concat(coded_message.map(encoded_word_output_pdf))
+    docDefinition.content = docDefinition.content.concat(coded_message.map(coded_message_pdfMake_table))
     docDefinition.content.push(vspace(50))
     docDefinition.content.push(
         {
-            // layout: 'noBorders',
             table: {
-            // headers are automatically repeated if the table spans over multiple pages
-            // you can declare how many rows should be treated as headers
-            //   headerRows: 1,
-                // heights: Array(num_rows).fill('100'),
                 widths: Array(num_cols).fill('*'),
                 body: my_table,
             }
         }
-    )
-    // console.log(JSON.stringify(my_table))
-    // docDefinition.content[1].table.body = my_table
-    
+    )    
     pdfMake.createPdf(docDefinition).open();
-
-    // console.log(riddle)
-    // console.log(text)
-    // console.log(coded_message)
-
-    // for(var i=1; i < encoding.length; i++) {
-    //     console.log(encoding[i].letter + ": " + encoding[i].number_1 + " + " + encoding[i].number_2 + " = ")
-    // }
 });
