@@ -41,6 +41,33 @@ function coded_message_pdfMake_table(coded_word) {
     }
 }
 
+function math_problem_dom_output(problem, operator) {
+    let container = $('<div class="problem-container">')
+    container.append([
+        $("<div>", {style: "text-align:left"}).text(problem.letter + ":"),
+        $("<div>").append($("<h3>").text(problem.number_1)),
+        $("<div>").append($("<h3>").text(problem.operator + " " + problem.number_2)),
+        $("<div>", {class: "answer-input"}).append($("<input>", {id: problem.letter, type: "number", min: 0, style: "text-align:right"})),
+    ]);
+    return container
+}
+
+function math_problem_pdf_output(problem, operator, sizes={letter: 15, number: 20, height: 40}) {
+    const no_border = [false, false, false, false];
+    const bottom_border = [false, false, false, true];
+    const empty_cell = {text:"", border:no_border};
+    let output = {table: {
+        heights: ['*', sizes.height],
+        widths: ['*', '*', 5],
+        body: [[], []]
+    }};
+    output.table.body[0].push({text: problem.letter+':', border: no_border, fontSize:sizes.letter})
+    output.table.body[0].push({text: problem.number_1 + "\n" + problem.operator + " " + problem.number_2, alignment: "right", border: bottom_border, fontSize:sizes.number})
+    output.table.body[0].push(empty_cell);
+    output.table.body[1] = [empty_cell, empty_cell, empty_cell]
+    return output
+}
+
 class SubCipher {
     // Creates a substitution cipher
     constructor(plain_chars, cipher_chars) {
@@ -71,7 +98,7 @@ class SubCipher {
 }
 
 class EncodedMessage {
-    constructor(riddle, text, max_num) {
+    constructor(riddle, text, max_num, problem_type = AdditionProblem) {
         this.riddle = riddle; // Text of the riddle/prompt
         this.text = text; // Text of the answer/message -- this will be encoded
         this.chars = Array.from(new Set(text.split(' ').join('').split(''))).sort(); // unique letters from text
@@ -81,7 +108,8 @@ class EncodedMessage {
         shuffle(number_pool);
         const summation = number_pool.slice(0,this.chars.length);
         this.cipher = new SubCipher([' '].concat(this.chars), [-1].concat(summation));
-        this.problems = this.chars.map((x) => new AdditionProblem(x, this.cipher.encode(x)));
+        this.problems = this.chars.map((x) => new problem_type(x, this.cipher.encode(x)));
+        // this.problems = this.chars.map((x) => new SumProblem(x, this.cipher.encode(x)));
     }
 
     coded_message_output() {
@@ -110,7 +138,17 @@ class EncodedMessage {
 class MathProblem {
     constructor(letter, answer){
         this.letter = letter;
+        this.number_1;
+        this.number_2;
         this.answer = answer;
+        this.operator;
+    }
+    dom_output() {
+        return math_problem_dom_output(this)
+    }
+
+    pdf_output(sizes={letter: 15, number: 20, height: 40}) {
+        return math_problem_pdf_output(this, sizes)
     }
 }
 
@@ -119,33 +157,16 @@ class AdditionProblem extends MathProblem {
         super(letter, answer);
         this.number_1 = Math.floor(Math.random() * answer);
         this.number_2 = answer - this.number_1;
+        this.operator = "+"
     }
+}
 
-    dom_output() {
-        let container = $('<div class="problem-container">')
-        container.append([
-            $("<div>", {style: "text-align:left"}).text(this.letter + ":"),
-            $("<div>").append($("<h3>").text(this.number_1)),
-            $("<div>").append($("<h3>").text("+ " + this.number_2)),
-            $("<div>", {class: "answer-input"}).append($("<input>", {id: this.letter, type: "number", min: 0, style: "text-align:right"})),
-        ]);
-        return container
-    }
-
-    pdf_output(sizes={letter: 15, number: 20, height: 40}) {
-        const no_border = [false, false, false, false];
-        const bottom_border = [false, false, false, true];
-        const empty_cell = {text:"", border:no_border};
-        let output = {table: {
-            heights: ['*', sizes.height],
-            widths: ['*', '*', 5],
-            body: [[], []]
-        }};
-        output.table.body[0].push({text: this.letter+':', border: no_border, fontSize:sizes.letter})
-        output.table.body[0].push({text: this.number_1 + "\n+ " + this.number_2, alignment: "right", border: bottom_border, fontSize:sizes.number})
-        output.table.body[0].push(empty_cell);
-        output.table.body[1] = [empty_cell, empty_cell, empty_cell]
-        return output
+class SubtractionProblem extends MathProblem {
+    constructor(letter, answer){
+        super(letter, answer);
+        this.number_2 = Math.floor(Math.random() * answer);
+        this.number_1 = answer + this.number_2;
+        this.operator = "-"
     }
 }
 
@@ -186,7 +207,7 @@ function check(){
     }
 }
 
-var print_button = document.getElementById('print_button');
+let encoding;
 
 $('#reset_button').on("click", reset_form);
 
@@ -194,6 +215,7 @@ $('#text_input_form').on("submit", (e) => {
     e.preventDefault()
 
     hide_form()
+    
     const max_sum = $('#max_sum')[0].value; // maximum sum for addition problems
     const text = $('#text')[0].value.replace(/ +(?= )/g,'').toUpperCase(); // text to encode
     const riddle = $('#riddle')[0].value;
@@ -202,13 +224,13 @@ $('#text_input_form').on("submit", (e) => {
     $('#riddle-output').text(riddle);
     $("#output").append(encoding.coded_message_output())
     $("#math_problems").append(encoding.problems_output())
+    $('#decode').on("click", check)
 
     if($('#live-check')[0].checked){
         for(let i=0; i<encoding.problems.length; i++) {
             $('#'+encoding.problems[i].letter).on("change", check);
         }
     }
-    $('#decode').on("click", check)
 });
 
 
