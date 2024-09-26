@@ -11,28 +11,32 @@
     <body>
     <main class="container">
         <div class="answer_form">
-            <h3>Settings:</h3>
-            <label>Maximum Sum for Addition Problems</label>
-            <input id="max_sum" class="answer_form" type="number" min="0" value="20" />
-            <small>This will be automatically increased if it is less than the number of unique letters in your answer.</small>
-            <input id="live-check" name="live-check" type="checkbox" checked /><label for="live-check">Decode as you solve</label>
+            <form class="answer_form" id="text_input_form">
+                <h3>Encode your riddle or message:</h3>
+                <label class="answer_form">Riddle / Prompt:</label>
+                <input id="riddle" class="answer_form" type="text" maxlength="200" value="Why was six afraid of seven?"/>
+                <!-- <input id="riddle" type="text" maxlength="200" value="Secret Message:"/> -->
+                <label class="answer_form" style="display:block">Answer / Message:</label>
+                <input id="text" class="answer_form" type="text" maxlength="100" pattern="[a-z A-Z]+" value="Because seven ate nine" style="display:block"/>
+                <!-- <input id="text" class="answer_form" type="text" maxlength="100" pattern="[a-z A-Z]+" value="The quick red fox jumps over the lazy brown dog" style="display:block"/> -->
+                <small class="answer_form">Only letters and spaces, max 100 characters</small>
+
+                <details>
+                    <summary style="font-size: x-large;">Settings:</summary>
+                    <label>Maximum Sum for Addition Problems</label>
+                    <input id="max_sum" class="answer_form" type="number" min="0" value="20" />
+                    <small>This will be automatically increased if it is less than the number of unique letters in your answer.</small>
+                    <input id="live-check" name="live-check" type="checkbox" checked /><label for="live-check">Decode as you solve</label>
+                    <hr />
+                </details>
+    
+                <button id="submit_button" class="answer_form" type="submit">Submit</button>
+            </form>
         </div>
-        <br />
-        <br />
-        <form class="answer_form" id="text_input_form">
-            <h3>Encode your riddle:</h3>
-            <label class="answer_form">Riddle / Prompt:</label>
-            <input id="riddle" class="answer_form" type="text" maxlength="200" value="Why was six afraid of seven?"/>
-            <!-- <input id="riddle" type="text" maxlength="200" value="Secret Message:"/> -->
-            <label class="answer_form" style="display:block">Answer:</label>
-            <input id="text" class="answer_form" type="text" maxlength="100" pattern="[a-z A-Z]+" value="Because seven ate nine" style="display:block"/>
-            <!-- <input id="text" class="answer_form" type="text" maxlength="100" pattern="[a-z A-Z]+" value="The quick red fox jumps over the lazy brown dog" style="display:block"/> -->
-            <small class="answer_form">Only letters and spaces, max 100 characters</small>
-            <button id="submit_button" class="answer_form" type="submit">Submit</button>
-        </form>
         <div id="solve-container" style="display:none">
             <h3 id="riddle-output"></h3>
             <div id="output" class="coded-message"></div>
+            <p>Solve the problems to decode the answer:</p>
             <div id="math_problems" class="grid"></div>
             <input type="button" id="decode" value="Decode"/>
             <div class="grid">

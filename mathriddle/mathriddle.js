@@ -26,40 +26,20 @@ function encoded_letter_output(value, element="<div class='coded-letter'>"){
     }
 }
 
-function encoded_word_output_pdf(coded_word) {
-    coded_word_array = coded_word.map((x) => new Object({text: (x >= 0 ? x : ' '), alignment: 'center'}))
-    blanks = coded_word.map((x) => new Object({text: '____', color: (x >=0 ? 'black' : 'white')}))
-    output_obj = {
+function coded_message_pdfMake_table(coded_word) {
+    return {
         layout: 'noBorders',
         table: {
             heights: ['*', 30],
             body: [
-                blanks,
-                coded_word_array,
+                // blanks
+                coded_word.map((x) => new Object({text: '____', color: (x >=0 ? 'black' : 'white')})),
+                // code values
+                coded_word.map((x) => new Object({text: (x >= 0 ? x : ' '), alignment: 'center'})),
             ]
         }
     }
-    return output_obj
 }
-
-function reset_form(){
-    $('.answer_form').css({display: "block"});
-    $('#solve-container').css({display: "none"});
-
-    $('#output').empty();
-    $('#math_problems').empty();
-};
-
-function hide_form(){
-    $('.answer_form').css({display: "none"});
-    $('#solve-container').css({display: "block"});
-}
-
-var reset_button = document.getElementById('reset_button');
-var textForm = document.getElementById('text_input_form');
-var print_button = document.getElementById('print_button');
-
-reset_button.onclick = reset_form;
 
 class SubCipher {
     // Creates a substitution cipher
@@ -95,32 +75,35 @@ class EncodedMessage {
         this.riddle = riddle; // Text of the riddle/prompt
         this.text = text; // Text of the answer/message -- this will be encoded
         this.chars = Array.from(new Set(text.split(' ').join('').split(''))).sort(); // unique letters from text
+        
         // Another way to deal with spaces and non-letter characters?
         let number_pool = [...Array(Math.max(max_num, this.chars.length)).keys()];
         shuffle(number_pool);
         const summation = number_pool.slice(0,this.chars.length);
         this.cipher = new SubCipher([' '].concat(this.chars), [-1].concat(summation));
-        this.problems = this.chars.map((x) => new SumProblem(x, this.cipher.encode(x)));
+        this.problems = this.chars.map((x) => new AdditionProblem(x, this.cipher.encode(x)));
     }
 
-    coded_message_output(root) {
+    coded_message_output() {
+        // Split message text into words encode them, and append an (encoded) space at the end of each word
         const coded_words = this.text.split(' ').map((x) => this.cipher.encode(x.split(''))).map((x) => x.concat(this.cipher.encode([' '])))
-        let children = coded_words.map((x) => $("<div>", {class: "coded-word"}).append(x.map((y)=>encoded_letter_output(y))))
-        root.append(children)
-        for(let i=0; i<root.children().length; i++) {
-            root.children()[i].style.gridTemplateColumns = "repeat(" + (coded_words[i].length) + ", 1fr)";
-            root.children()[i].style.gridColumn = "span " + (coded_words[i].length);
+        // For each word, generate a `div.coded-word` element that has, as children, a `div.coded-letter` element for each letter
+        // `children` is an array of jQuery `div.coded-word` elements
+        let children = coded_words.map((x) => $("<div>", {class: "coded-word"}).append(x.map((y)=>encoded_letter_output(y)))[0])
+        // For each 
+        for(let i=0; i<children.length; i++) {
+            children[i].style.gridTemplateColumns = "repeat(" + (coded_words[i].length) + ", 1fr)";
+            children[i].style.gridColumn = "span " + (coded_words[i].length);
         }
+        return children
     }
 
-    problems_output(root, num_cols=4) {
+    problems_output(num_cols=4) {
         let grid=$('<div class="problems-grid">')
         for(let i=0; i<this.problems.length; i++) {
-            let math_problem = $('<div class="problem-container">')
-            this.problems[i].jquery_output(math_problem)
-            grid.append(math_problem)
+            grid.append(this.problems[i].dom_output())
         }
-        root.append(grid)
+        return grid
     }
 }
 
@@ -131,21 +114,22 @@ class MathProblem {
     }
 }
 
-class SumProblem extends MathProblem {
+class AdditionProblem extends MathProblem {
     constructor(letter, answer){
         super(letter, answer);
         this.number_1 = Math.floor(Math.random() * answer);
         this.number_2 = answer - this.number_1;
     }
 
-    jquery_output(node) {
-        node.append([
+    dom_output() {
+        let container = $('<div class="problem-container">')
+        container.append([
             $("<div>", {style: "text-align:left"}).text(this.letter + ":"),
             $("<div>").append($("<h3>").text(this.number_1)),
             $("<div>").append($("<h3>").text("+ " + this.number_2)),
             $("<div>", {class: "answer-input"}).append($("<input>", {id: this.letter, type: "number", min: 0, style: "text-align:right"})),
         ]);
-        return node
+        return container
     }
 
     pdf_output(sizes={letter: 15, number: 20, height: 40}) {
@@ -165,73 +149,66 @@ class SumProblem extends MathProblem {
     }
 }
 
-textForm.addEventListener("submit", (e) => {
+function reset_form(){
+    $('.answer_form').css({display: "block"});
+    $('#solve-container').css({display: "none"});
+
+    $('#output').empty();
+    $('#math_problems').empty();
+};
+
+function hide_form(){
+    $('.answer_form').css({display: "none"});
+    $('#solve-container').css({display: "block"});
+}
+
+function check(){
+    // checks all answers and populates letters in coded message boxes
+    // letters are populated whether or not they are correct
+    const answers = encoding.problems.map((x) => x.answer);
+    const letters = encoding.problems.map((x) => x.letter)
+    const inputs = letters.map((x) => $('#'+x)[0]);
+    
+    // clear all letters from coded message
+    $('div.coded-box').children().text('\xa0')
+    for(let i=0; i<inputs.length; i++){
+        if(!!inputs[i].value){
+            $('.code-value-'+inputs[i].value).text(letters[i]) // add letter to matching code values (even if incorrect)
+            // change input border color if correct/incorrect/empty
+            if(inputs[i].value != answers[i]){
+                inputs[i].style.borderColor = "var(--pico-form-element-invalid-active-border-color)";
+            }else{
+                inputs[i].style.borderColor = "var(--pico-form-element-valid-active-border-color)";
+            }
+        }else{
+            inputs[i].style.borderColor = "var(--pico-form-element-border-color)";
+        }
+    }
+}
+
+var print_button = document.getElementById('print_button');
+
+$('#reset_button').on("click", reset_form);
+
+$('#text_input_form').on("submit", (e) => {
     e.preventDefault()
 
     hide_form()
-    const max_sum = document.getElementById('max_sum').value; // maximum sum for addition problems
-    const text = document.getElementById('text').value.replace(/ +(?= )/g,'').toUpperCase(); // text to encode
-    const riddle = document.getElementById('riddle').value;
+    const max_sum = $('#max_sum')[0].value; // maximum sum for addition problems
+    const text = $('#text')[0].value.replace(/ +(?= )/g,'').toUpperCase(); // text to encode
+    const riddle = $('#riddle')[0].value;
     encoding = new EncodedMessage(riddle, text, max_sum)
 
     $('#riddle-output').text(riddle);
-    encoding.coded_message_output($("#output"))
-    encoding.problems_output($('#math_problems'))
+    $("#output").append(encoding.coded_message_output())
+    $("#math_problems").append(encoding.problems_output())
 
-    if(document.querySelector('#live-check').checked){
-        for(var i=0; i<encoding.problems.length;i++){
-            document.getElementById(encoding.problems[i].letter).addEventListener("change", (e) => {
-                e.preventDefault()
-                var letter = e.currentTarget.id
-
-                // Get the 
-                var index = encoding.problems.map((x) => x.letter).indexOf(letter)
-                var answer_input = e.currentTarget
-                var answer_value = answer_input.value
-                var code_values = document.getElementsByClassName('code-value-' + answer_value)
-
-                // change the color of the answer input field if it's correct/incorrect/empty
-                if(!!answer_value){
-                    if(answer_value != encoding.problems[index].answer){
-                        answer_input.style.borderColor = "red";
-                    }
-                    else{
-                        answer_input.style.borderColor = "green";
-                    }
-                }else{
-                    answer_input.style.borderColor = "gray";
-                }
-                // fill in the letter for any corresponding code values (even if incorrect)
-                for(var j=0; j < code_values.length; j++) {
-                    code_values[j].innerHTML = letter;
-                    // code_values[j].value = letter;
-                }
-            });
+    if($('#live-check')[0].checked){
+        for(let i=0; i<encoding.problems.length; i++) {
+            $('#'+encoding.problems[i].letter).on("change", check);
         }
     }
-    document.querySelector('#decode').addEventListener("click", (e) => {
-        e.preventDefault
-        for(var i=0; i<encoding.problems.length;i++){
-            var answer_input = document.getElementById(encoding.problems[i].letter)
-            var answer_value = answer.value
-            var code_values = document.getElementsByClassName('code-value-' + answer_value)
-            // change the color of the answer input field if it's correct/incorrect/empty
-            if(!!answer_value){
-                if(answer_value != encoding.problems[index].answer){
-                    answer_input.style.borderColor = "red";
-                }
-                else{
-                    answer_input.style.borderColor = "green";
-                }
-            }else{
-                answer_input.style.borderColor = "gray";
-            }
-            // fill in the letter for any corresponding code values (even if incorrect)
-            for(var j=0; j < code_values.length; j++) {
-                code_values[j].value = encoding.problems[i].letter;
-            }
-        }
-    });
+    $('#decode').on("click", check)
 });
 
 
@@ -256,10 +233,7 @@ function vspace(height){
     return { layout: 'noBorders', table: {heights: [height], body: [[]]} }
 }
 
-
-
-print_button.addEventListener("click", (e) => {
-    e.preventDefault()
+$('#print_button').on("click", (e) => {
 
     let riddle = document.getElementById('riddle').value
     let text = document.getElementById('text').value.replace(/ +(?= )/g,'').toUpperCase(); // text to encode
@@ -308,7 +282,7 @@ print_button.addEventListener("click", (e) => {
             vspace(50),
         ]
     };
-    docDefinition.content = docDefinition.content.concat(coded_message.map(encoded_word_output_pdf))
+    docDefinition.content = docDefinition.content.concat(coded_message.map(coded_message_pdfMake_table))
     docDefinition.content.push(vspace(50))
     docDefinition.content.push(
         {
