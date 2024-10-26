@@ -1,0 +1,34 @@
+/* Applies to the entire body of the HTML document (except where overridden by more specific
+selectors). */
+body {
+  margin: 25px;
+  background-color: #dddddd;
+  font-family: arial, sans-serif;
+  font-size: 20;
+}
+
+/* Applies to all <h1>...</h1> elements. */
+h1 {
+  font-size: 35px;
+  font-family: inherit;
+  font-weight: normal;
+  margin-top: 5px;
+}
+
+.speak, input {
+    font-size: 30px;
+}
+
+input.valid {
+    border: 2px solid green;
+}
+
+input.invalid {
+    border: 2px solid red;
+}
+
+/* Applies to all elements with <... class="someclass"> specified. */
+.someclass { color: red; }
+
+/* Applies to the element with <... id="someid"> specified. */
+#someid { color: green; }
