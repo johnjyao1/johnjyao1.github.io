@@ -26,40 +26,40 @@ function checkAnswer(word, answer_form) {
     }
 }
 
-// fetch("data.json").then(function(data) {
+fetch("data.json").then(function(data) {
 
-const data = [
-    {
-        "date": "Oct 14 2024",
-        "words": [
-            "sale",
-            "silla",
-            "sapo",
-            "soga",
-            "semilla",
-            "señora",
-            "sala",
-            "sofá",
-            "sirena",
-            "sucio"     
-        ]
-    },
-    {
-        "date": "Oct 21 2024",
-        "words": [
-            "dedo",
-            "dama",
-            "diente",
-            "ducha",
-            "dibujo",
-            "delental",
-            "dulce",
-            "dijo",
-            "comunicación",
-            "expresar"     
-        ]
-    },
-]
+// const data = [
+//     {
+//         "date": "Oct 14 2024",
+//         "words": [
+//             "sale",
+//             "silla",
+//             "sapo",
+//             "soga",
+//             "semilla",
+//             "señora",
+//             "sala",
+//             "sofá",
+//             "sirena",
+//             "sucio"     
+//         ]
+//     },
+//     {
+//         "date": "Oct 21 2024",
+//         "words": [
+//             "dedo",
+//             "dama",
+//             "diente",
+//             "ducha",
+//             "dibujo",
+//             "delental",
+//             "dulce",
+//             "dijo",
+//             "comunicación",
+//             "expresar"     
+//         ]
+//     },
+// ]
 
 for(let i=0; i<data.length; i++) {
     $('#selection').append($("<option>", {value: i}).text(data[i].date))
@@ -90,7 +90,7 @@ $('#selection').on("change", function(event) {
         $(".word").hide();
     }
 })
-
+})
 $("#show-hide-words").on("click", function(event) {
     if ($(event.target).text() == "Hide Words") {
         $(event.target).text("Show Words");
