@@ -1,21 +1,3 @@
-// Test jQuery
-// $('#container').text('jQuery works!')
-
-const synth = window.speechSynthesis;
-
-function speakSpanish(text, rate=0.7) {
-  const utterThis = new SpeechSynthesisUtterance(text);
-  utterThis.lang = 'es-ES'; // Set the language to Spanish (Spain)
-  utterThis.rate = rate
-
-  // Find a Spanish voice
-  const spanishVoice = speechSynthesis.getVoices().find(voice => voice.lang === 'es-ES');
-  if (spanishVoice) {
-    utterThis.voice = spanishVoice;
-  }
-
-  synth.speak(utterThis);
-}
 
 function checkAnswer(word, answer_form) {
     if(word == answer_form.val()) {
@@ -59,6 +41,10 @@ fetch("data.json").then((response) => response.json()).then((json) => {
         }
     });
 });
+<<<<<<< HEAD
+=======
+
+>>>>>>> spanish
 $("#show-hide-words").on("click", function(event) {
     if ($(event.target).text() == "Hide Words") {
         $(event.target).text("Show Words");
@@ -68,4 +54,4 @@ $("#show-hide-words").on("click", function(event) {
         $(event.target).text("Hide Words");
         $(".word").show();
     }
-})
+});
