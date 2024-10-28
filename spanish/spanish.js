@@ -26,6 +26,12 @@ function setSpellingWords(root, words) {
                 word_audio[i].play();
             });
             $("#word-container-"+i).append($("<td>")).append($("<input>", {"id": "answer-" + i, "type": "text"}))
+            $("#answer-"+i).on("focus", function() {
+                if ($("#answer-"+i).val()=="" && $("#auto-speak").is(":checked")) {
+                    word_audio[i].playbackRate = $('#rate').val()
+                    word_audio[i].play();        
+                }
+            })    
             $("#answer-"+i).on("change", function(event) {
                 checkAnswer(word, $('#answer-'+i));
             })
