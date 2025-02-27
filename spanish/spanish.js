@@ -1,6 +1,6 @@
 
 function checkAnswer(word, answer_form) {
-    if(word == answer_form.val()) {
+    if(word.toLowerCase() == answer_form.val().toLowerCase()) {
         answer_form.attr("class", "valid")
     }
     else {
