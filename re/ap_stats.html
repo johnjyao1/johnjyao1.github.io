@@ -171,7 +171,7 @@
     [0, 0, 0, 0],
     [0, 0, 0, 0]
   ];
-  
+   
   let setA_rows = new Set([0]);
   let setB_cols = new Set([0]);
 
@@ -709,18 +709,35 @@
     const setA = document.getElementById('setAName').value || 'Set A';
     const setB = document.getElementById('setBName').value || 'Set B';
 
+    // Gray-out circle and label for event not being conditioned on
+    const grayA = (activeQuery === 'P_A_GIVEN_B');
+    const grayB = (activeQuery === 'P_B_GIVEN_A');
+
+    const colorA_fill   = grayA ? 'rgba(100, 116, 139, 0.05)' : 'rgba(56, 189, 248, 0.1)';
+    const colorA_stroke = grayA ? '#475569' : '#38bdf8';
+    const colorA_text   = grayA ? '#64748b' : '#38bdf8';
+
+    const colorB_fill   = grayB ? 'rgba(100, 116, 139, 0.05)' : 'rgba(244, 63, 94, 0.1)';
+    const colorB_stroke = grayB ? '#475569' : '#f43f5e';
+    const colorB_text   = grayB ? '#64748b' : '#f43f5e';
+
+    // Circle A
     ctx.beginPath(); ctx.arc(vg.posA.x, vg.posA.y, vg.rA, 0, 2 * Math.PI);
-    ctx.fillStyle = 'rgba(56, 189, 248, 0.1)'; ctx.fill();
-    ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = colorA_fill; ctx.fill();
+    ctx.strokeStyle = colorA_stroke; ctx.lineWidth = grayA ? 1.5 : 2; ctx.stroke();
 
+    // Circle B
     ctx.beginPath(); ctx.arc(vg.posB.x, vg.posB.y, vg.rB, 0, 2 * Math.PI);
-    ctx.fillStyle = 'rgba(244, 63, 94, 0.1)'; ctx.fill();
-    ctx.strokeStyle = '#f43f5e'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = colorB_fill; ctx.fill();
+    ctx.strokeStyle = colorB_stroke; ctx.lineWidth = grayB ? 1.5 : 2; ctx.stroke();
 
-    ctx.fillStyle = '#38bdf8'; ctx.font = 'bold 13px sans-serif';
-    ctx.fillText(setA, vg.posA.x - vg.rA * 0.5, vg.posA.y - vg.rA - 8);
-    ctx.fillStyle = '#f43f5e';
-    ctx.fillText(setB, vg.posB.x + vg.rB * 0.2, vg.posB.y - vg.rB - 8);
+    // Labels
+    ctx.font = 'bold 13px sans-serif';
+    ctx.fillStyle = colorA_text;
+    ctx.fillText(setA + (grayA ? ' (Not Conditioned)' : ''), vg.posA.x - vg.rA * 0.5, vg.posA.y - vg.rA - 8);
+
+    ctx.fillStyle = colorB_text;
+    ctx.fillText(setB + (grayB ? ' (Not Conditioned)' : ''), vg.posB.x + vg.rB * 0.2, vg.posB.y - vg.rB - 8);
   }
 
   function drawMosaicPlot() {
