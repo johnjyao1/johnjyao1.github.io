@@ -1,1 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AP Statistics: Two-Way Table, Venn & Mosaic Plot Visualizer</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a; --panel: #1e293b; --text: #f8fafc; --muted: #94a3b8;
+      --border: #334155; --accent-a: #38bdf8; --accent-b: #f43f5e;
+      --accent-both: #a855f7; --accent-neither: #64748b; --highlight: #facc15;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
+    #sidebar { width: 460px; background: var(--panel); border-right: 1px solid var(--border); padding: 16px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
+    h1 { font-size: 1.15rem; color: #fff; }
+    h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 6px; }
+    .group { background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; border: 1px solid var(--border); }
+    .row { display: flex; gap: 8px; align-items: center; }
+    select, input[type="number"], input[type="text"] { background: var(--bg); border: 1px solid var(--border); color: #fff; padding: 5px; border-radius: 4px; font-size: 0.8rem; }
+    input[type="text"] { width: 100%; }
+    table { width: 100%; border-collapse: collapse; text-align: center; font-size: 0.75rem; margin-top: 6px; }
+    th, td { padding: 4px; border: 1px solid var(--border); }
+    th { background: rgba(255,255,255,0.05); }
+    .cell-in { width: 50px; text-align: center; font-weight: bold; }
+    .hdr-in { width: 70px; text-align: center; }
+    .chk-list { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; font-size: 0.8rem; }
+    .chk-item { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.03); padding: 3px 6px; border-radius: 4px; }
+    .btn-grp { display: flex; gap: 6px; }
+    .btn { flex: 1; padding: 7px; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; cursor: pointer; font-size: 0.8rem; transition: all 0.2s; }
+    .btn:hover { background: var(--border); }
+    .btn.active { background: #2563eb; border-color: #3b82f6; color: #fff; font-weight: bold; }
+    .grid-btns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .query-btn { font-family: monospace; font-size: 0.75rem; padding: 6px 2px; }
+    .calc-box { background: rgba(0,0,0,0.3); border: 1px dashed var(--border); border-radius: 6px; padding: 8px; margin-top: 8px; font-size: 0.8rem; }
+    .calc-res { color: var(--highlight); font-weight: bold; font-family: monospace; font-size: 0.85rem; margin-top: 4px; }
+    .calc-def { color: var(--muted); font-size: 0.72rem; margin-top: 4px; font-style: italic; }
+    #main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; background: #020617; }
+    canvas { background: transparent; border-radius: 8px; }
+    #legend { position: absolute; bottom: 16px; left: 16px; background: rgba(15,23,42,0.9); padding: 8px 14px; border-radius: 6px; border: 1px solid var(--border); font-size: 0.75rem; display: flex; gap: 14px; }
+    .leg-item { display: flex; align-items: center; gap: 5px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; }
+  </style>
+</head>
+<body>
 
+  <div id="sidebar">
+    <h1>Two-Way Table, Venn & Mosaic Visualizer</h1>
+
+    <!-- 1. Variables & Categories -->
+    <div class="group">
+      <h2>1. Variables & Categories</h2>
+      <div class="row" style="margin-bottom: 6px;">
+        <label>Rows:</label>
+        <select id="numRows" onchange="rebuildUI()"><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option></select>
+        <label style="margin-left: 8px;">Cols:</label>
+        <select id="numCols" onchange="rebuildUI()"><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option></select>
+      </div>
+      <div class="row" style="margin-bottom: 4px;">
+        <label style="width: 90px;">Row Var:</label>
+        <input type="text" id="rowVar" value="Eyebrow Raising" oninput="rebuildUI()">
+      </div>
+      <div class="row">
+        <label style="width: 90px;">Col Var:</label>
+        <input type="text" id="colVar" value="Tongue Rolling" oninput="rebuildUI()">
+      </div>
+    </div>
+
+    <!-- 2. Data Counts -->
+    <div class="group">
+      <h2>2. Data Counts</h2>
+      <div style="overflow-x: auto;">
+        <table id="tableUI"></table>
+      </div>
+    </div>
+
+    <!-- 3. Map Sets for Venn Diagram -->
+    <div class="group">
+      <h2>3. Map Sets for Venn Diagram</h2>
+      <div style="margin-bottom: 8px;">
+        <div class="row"><label style="width: 70px; color: var(--accent-a); font-weight: bold;">Set A:</label><input type="text" id="setAName" value="Eyebrow Raisers" oninput="render()"></div>
+        <div id="setARows" class="chk-list"></div>
+      </div>
+      <div>
+        <div class="row"><label style="width: 70px; color: var(--accent-b); font-weight: bold;">Set B:</label><input type="text" id="setBName" value="Tongue Rollers" oninput="render()"></div>
+        <div id="setBCols" class="chk-list"></div>
+      </div>
+    </div>
+
+    <!-- 4. Visual Representation -->
+    <div class="group">
+      <h2>4. Visual Representation</h2>
+      <div class="btn-grp" style="margin-bottom: 8px;">
+        <button id="btnTable" class="btn active" onclick="setView('table')">Table</button>
+        <button id="btnVenn" class="btn" onclick="setView('venn')">Venn Diagram</button>
+        <button id="btnMosaic" class="btn" onclick="setView('mosaic')">Mosaic Plot</button>
+      </div>
+      <div class="btn-grp">
+        <button id="btnFixed" class="btn active" onclick="setSizing('fixed')">Fixed Circles</button>
+        <button id="btnProp" class="btn" onclick="setSizing('proportional')">Proportional</button>
+      </div>
+    </div>
+
+    <!-- 5. Probability Query Evaluator -->
+    <div class="group">
+      <h2>5. Probability Query Evaluator</h2>
+      <div class="grid-btns">
+        <button class="btn query-btn" onclick="setQuery('ALL')">Clear/All</button>
+        <button class="btn query-btn" onclick="setQuery('P_A')">P(A)</button>
+        <button class="btn query-btn" onclick="setQuery('P_B')">P(B)</button>
+        <button class="btn query-btn" onclick="setQuery('P_A_AND_B')">P(A ∩ B)</button>
+        <button class="btn query-btn" onclick="setQuery('P_A_OR_B')">P(A ∪ B)</button>
+        <button class="btn query-btn" onclick="setQuery('P_NOT_A')">P(Aᶜ)</button>
+        <button class="btn query-btn" onclick="setQuery('P_A_GIVEN_B')">P(A|B)</button>
+        <button class="btn query-btn" onclick="setQuery('P_B_GIVEN_A')">P(B|A)</button>
+        <button class="btn query-btn" onclick="setQuery('P_NOT_B')">P(Bᶜ)</button>
+      </div>
+      <div class="calc-box">
+        <div id="prob-title" style="font-weight: bold; color: var(--accent-a);">Select a probability query above...</div>
+        <div id="prob-res" class="calc-res">---</div>
+      </div>
+    </div>
+
+    <!-- 6. Section 2A Relative Frequency Calculator -->
+    <div class="group">
+      <h2>6. Section 2A Relative Frequency Calculator</h2>
+      <div class="btn-grp" style="margin-bottom: 8px;">
+        <button id="btnMarginal" class="btn active" onclick="setRelFreqType('marginal')">Marginal</button>
+        <button id="btnJoint" class="btn" onclick="setRelFreqType('joint')">Joint</button>
+        <button id="btnConditional" class="btn" onclick="setRelFreqType('conditional')">Conditional</button>
+      </div>
+
+      <div id="relFreqControls">
+        <!-- Dynamic dropdowns built in JS -->
+      </div>
+
+      <div class="calc-box">
+        <div id="rel-freq-title" style="font-weight: bold; color: var(--highlight);">Relative Frequency Calculation</div>
+        <div id="rel-freq-res" class="calc-res">---</div>
+        <div id="rel-freq-def" class="calc-def">Select a relative frequency type above.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div id="main">
+    <canvas id="canvas" width="720" height="520"></canvas>
+    <div id="legend">
+      <div class="leg-item"><div class="dot" style="background: var(--accent-both);"></div> Both (A ∩ B)</div>
+      <div class="leg-item"><div class="dot" style="background: var(--accent-a);"></div> Set A Only</div>
+      <div class="leg-item"><div class="dot" style="background: var(--accent-b);"></div> Set B Only</div>
+      <div class="leg-item"><div class="dot" style="background: var(--accent-neither);"></div> Neither</div>
+      <div class="leg-item" id="scale-info" style="color: var(--highlight); font-weight: bold;">Scale: 1 dot = 1 obs.</div>
+    </div>
+  </div>
+
+<script>
+  const MAX_PARTICLES = 300;
+  let viewMode = 'table', sizingMode = 'fixed', scaleRatio = 1;
+  let activeQuery = 'ALL';
+  let relFreqType = 'marginal';
+
+  let nRows = 2, nCols = 2;
+  let rowHeaders = ["Can Raise", "Cannot Raise", "Row 3", "Row 4"];
+  let colHeaders = ["Can Roll", "Cannot Roll", "Col 3", "Col 4"];
+  
+  let counts = [
+    [40, 60, 0, 0],
+    [30, 70, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0]
+  ];
+  
+  let setA_rows = new Set([0]);
+  let setB_cols = new Set([0]);
+
+  let particles = [], simulation = null;
+  const cvs = document.getElementById('canvas'), ctx = cvs.getContext('2d');
+  const W = cvs.width, H = cvs.height;
+
+  function init() { rebuildUI(); setupSim(); }
+
+  function rebuildUI() {
+    nRows = parseInt(document.getElementById('numRows').value);
+    nCols = parseInt(document.getElementById('numCols').value);
+    const rVar = document.getElementById('rowVar').value || "Row Var";
+    const cVar = document.getElementById('colVar').value || "Col Var";
+
+    let html = `<thead><tr><th style="font-size:0.65rem;">${rVar}<br>\ ${cVar}</th>`;
+    for (let j = 0; j < nCols; j++) {
+      html += `<th><input type="text" class="hdr-in" id="colH_${j}" value="${colHeaders[j]}" oninput="updateHeaders()"></th>`;
+    }
+    html += '<th>Total</th></tr></thead><tbody>';
+
+    for (let i = 0; i < nRows; i++) {
+      html += `<tr><th><input type="text" class="hdr-in" id="rowH_${i}" value="${rowHeaders[i]}" oninput="updateHeaders()"></th>`;
+      for (let j = 0; j < nCols; j++) {
+        html += `<td><input type="number" class="cell-in" id="cell_${i}_${j}" value="${counts[i][j]}" min="0" oninput="updateData()"></td>`;
+      }
+      html += `<td id="rTot_${i}" style="font-weight:bold;">0</td></tr>`;
+    }
+    html += '<tr><th>Total</th>';
+    for (let j = 0; j < nCols; j++) html += `<td id="cTot_${j}" style="font-weight:bold;">0</td>`;
+    html += '<td id="gTot" style="font-weight:bold; color:var(--accent-a);">0</td></tr></tbody>';
+    document.getElementById('tableUI').innerHTML = html;
+
+    rebuildCheckboxes();
+    rebuildRelFreqControls();
+    updateData();
+  }
+
+  function rebuildCheckboxes() {
+    let aHtml = '', bHtml = '';
+    for (let i = 0; i < nRows; i++) {
+      aHtml += `<label class="chk-item"><input type="checkbox" id="chkA_${i}" ${setA_rows.has(i)?'checked':''} onchange="updateSets()"><span>${rowHeaders[i]}</span></label>`;
+    }
+    for (let j = 0; j < nCols; j++) {
+      bHtml += `<label class="chk-item"><input type="checkbox" id="chkB_${j}" ${setB_cols.has(j)?'checked':''} onchange="updateSets()"><span>${colHeaders[j]}</span></label>`;
+    }
+    document.getElementById('setARows').innerHTML = aHtml;
+    document.getElementById('setBCols').innerHTML = bHtml;
+  }
+
+  function updateHeaders() {
+    for (let i = 0; i < nRows; i++) rowHeaders[i] = document.getElementById(`rowH_${i}`).value;
+    for (let j = 0; j < nCols; j++) colHeaders[j] = document.getElementById(`colH_${j}`).value;
+    rebuildCheckboxes();
+    rebuildRelFreqControls();
+    render();
+  }
+
+  function updateSets() {
+    setA_rows.clear();
+    for (let i = 0; i < nRows; i++) if (document.getElementById(`chkA_${i}`)?.checked) setA_rows.add(i);
+    setB_cols.clear();
+    for (let j = 0; j < nCols; j++) if (document.getElementById(`chkB_${j}`)?.checked) setB_cols.add(j);
+    rebuildParticles();
+    evaluateQuery();
+  }
+
+  function getAssignment(r, c) {
+    const inA = setA_rows.has(r), inB = setB_cols.has(c);
+    return inA && inB ? 'BOTH' : (inA ? 'A' : (inB ? 'B' : 'NEITHER'));
+  }
+
+  function updateData() {
+    let gTot = 0, cTots = new Array(nCols).fill(0);
+    for (let i = 0; i < nRows; i++) {
+      let rTot = 0;
+      for (let j = 0; j < nCols; j++) {
+        const v = Math.max(0, parseInt(document.getElementById(`cell_${i}_${j}`).value) || 0);
+        counts[i][j] = v; rTot += v; cTots[j] += v;
+      }
+      document.getElementById(`rTot_${i}`).innerText = rTot;
+      gTot += rTot;
+    }
+    for (let j = 0; j < nCols; j++) document.getElementById(`cTot_${j}`).innerText = cTots[j];
+    document.getElementById('gTot').innerText = gTot;
+
+    scaleRatio = Math.max(1, Math.ceil(gTot / MAX_PARTICLES));
+    document.getElementById('scale-info').innerText = `Scale: 1 dot = ${scaleRatio} obs.`;
+    rebuildParticles();
+    evaluateQuery();
+    calculateRelFreq();
+  }
+
+  function rebuildParticles() {
+    const newP = [];
+    const colorMap = { BOTH: '#a855f7', A: '#38bdf8', B: '#f43f5e', NEITHER: '#64748b' };
+    let id = 0;
+
+    for (let i = 0; i < nRows; i++) {
+      for (let j = 0; j < nCols; j++) {
+        const cnt = counts[i][j];
+        const numDots = Math.round(cnt / scaleRatio);
+        const mapType = getAssignment(i, j);
+
+        for (let d = 0; d < numDots; d++) {
+          const old = particles[id];
+          newP.push({
+            id: id++, r: i, c: j, type: mapType, color: colorMap[mapType],
+            x: old ? old.x : W / 2 + (Math.random() - 0.5) * 40,
+            y: old ? old.y : H / 2 + (Math.random() - 0.5) * 40,
+            targetX: W / 2, targetY: H / 2,
+            highlighted: true
+          });
+        }
+      }
+    }
+    particles = newP;
+    updateTargets();
+  }
+
+  // --- 5. Probability Query Evaluator Engine ---
+  function setQuery(q) {
+    activeQuery = q;
+    evaluateQuery();
+  }
+
+  function evaluateQuery() {
+    let countA = 0, countB = 0, countBoth = 0, grandTotal = 0;
+    let countAOnly = 0, countBOnly = 0, countNeither = 0;
+
+    for (let i = 0; i < nRows; i++) {
+      for (let j = 0; j < nCols; j++) {
+        const c = counts[i][j]; grandTotal += c;
+        const m = getAssignment(i, j);
+        if (m === 'BOTH') { countBoth += c; countA += c; countB += c; }
+        else if (m === 'A') { countAOnly += c; countA += c; }
+        else if (m === 'B') { countBOnly += c; countB += c; }
+        else { countNeither += c; }
+      }
+    }
+
+    const setAName = document.getElementById('setAName').value || 'Set A';
+    const setBName = document.getElementById('setBName').value || 'Set B';
+
+    let titleStr = '', resStr = '', targetTypes = [];
+
+    switch(activeQuery) {
+      case 'P_A':
+        targetTypes = ['A', 'BOTH'];
+        titleStr = `Probability of ${setAName} [P(A)]`;
+        const pA = grandTotal > 0 ? (countA / grandTotal) : 0;
+        resStr = `P(A) = ${countA} / ${grandTotal} = ${pA.toFixed(4)} (${(pA*100).toFixed(1)}%)`;
+        break;
+
+      case 'P_B':
+        targetTypes = ['B', 'BOTH'];
+        titleStr = `Probability of ${setBName} [P(B)]`;
+        const pB = grandTotal > 0 ? (countB / grandTotal) : 0;
+        resStr = `P(B) = ${countB} / ${grandTotal} = ${pB.toFixed(4)} (${(pB*100).toFixed(1)}%)`;
+        break;
+
+      case 'P_A_AND_B':
+        targetTypes = ['BOTH'];
+        titleStr = `Joint Probability [P(A ∩ B)]`;
+        const pBoth = grandTotal > 0 ? (countBoth / grandTotal) : 0;
+        resStr = `P(A ∩ B) = ${countBoth} / ${grandTotal} = ${pBoth.toFixed(4)} (${(pBoth*100).toFixed(1)}%)`;
+        break;
+
+      case 'P_A_OR_B':
+        targetTypes = ['A', 'B', 'BOTH'];
+        titleStr = `Union Probability [P(A ∪ B)]`;
+        const countUnion = countAOnly + countBOnly + countBoth;
+        const pUnion = grandTotal > 0 ? (countUnion / grandTotal) : 0;
+        resStr = `P(A ∪ B) = ${countUnion} / ${grandTotal} = ${pUnion.toFixed(4)} (${(pUnion*100).toFixed(1)}%)`;
+        break;
+
+      case 'P_NOT_A':
+        targetTypes = ['B', 'NEITHER'];
+        titleStr = `Complement of ${setAName} [P(Aᶜ)]`;
+        const countNotA = countBOnly + countNeither;
+        const pNotA = grandTotal > 0 ? (countNotA / grandTotal) : 0;
+        resStr = `P(Aᶜ) = ${countNotA} / ${grandTotal} = ${pNotA.toFixed(4)} (${(pNotA*100).toFixed(1)}%)`;
+        break;
+
+      case 'P_NOT_B':
+        targetTypes = ['A', 'NEITHER'];
+        titleStr = `Complement of ${setBName} [P(Bᶜ)]`;
+        const countNotB = countAOnly + countNeither;
+        const pNotB = grandTotal > 0 ? (countNotB / grandTotal) : 0;
+        resStr = `P(Bᶜ) = ${countNotB} / ${grandTotal} = ${pNotB.toFixed(4)} (${(pNotB*100).toFixed(1)}%)`;
+        break;
+
+      case 'P_A_GIVEN_B':
+        targetTypes = ['BOTH'];
+        titleStr = `Conditional Probability [P(A | B)]`;
+        const pAgB = countB > 0 ? (countBoth / countB) : 0;
+        resStr = `P(A | B) = P(A ∩ B) / P(B) = ${countBoth} / ${countB} = ${pAgB.toFixed(4)} (${(pAgB*100).toFixed(1)}%)`;
+        break;
+
+      case 'P_B_GIVEN_A':
+        targetTypes = ['BOTH'];
+        titleStr = `Conditional Probability [P(B | A)]`;
+        const pBgA = countA > 0 ? (countBoth / countA) : 0;
+        resStr = `P(B | A) = P(A ∩ B) / P(A) = ${countBoth} / ${countA} = ${pBgA.toFixed(4)} (${(pBgA*100).toFixed(1)}%)`;
+        break;
+
+      default: // 'ALL'
+        targetTypes = ['A', 'B', 'BOTH', 'NEITHER'];
+        titleStr = `Showing All Observations`;
+        resStr = `Total Observations (N) = ${grandTotal}`;
+    }
+
+    document.getElementById('prob-title').innerText = titleStr;
+    document.getElementById('prob-res').innerText = resStr;
+
+    particles.forEach(p => {
+      p.highlighted = targetTypes.includes(p.type);
+    });
+
+    render();
+  }
+
+  // --- 6. Section 2A Relative Frequency Calculator Engine ---
+  function setRelFreqType(type) {
+    relFreqType = type;
+    document.getElementById('btnMarginal').classList.toggle('active', type === 'marginal');
+    document.getElementById('btnJoint').classList.toggle('active', type === 'joint');
+    document.getElementById('btnConditional').classList.toggle('active', type === 'conditional');
+    rebuildRelFreqControls();
+    calculateRelFreq();
+  }
+
+  function rebuildRelFreqControls() {
+    const container = document.getElementById('relFreqControls');
+    const rVar = document.getElementById('rowVar').value || "Row Var";
+    const cVar = document.getElementById('colVar').value || "Col Var";
+
+    if (relFreqType === 'marginal') {
+      let optHtml = `<optgroup label="${rVar} (Row Totals)">`;
+      for (let i = 0; i < nRows; i++) optHtml += `<option value="R_${i}">${rVar}: ${rowHeaders[i]}</option>`;
+      optHtml += `</optgroup><optgroup label="${cVar} (Column Totals)">`;
+      for (let j = 0; j < nCols; j++) optHtml += `<option value="C_${j}">${cVar}: ${colHeaders[j]}</option>`;
+      optHtml += `</optgroup>`;
+
+      container.innerHTML = `
+        <div class="row">
+          <label style="width: 110px;">Select Category:</label>
+          <select id="selMarginalCat" onchange="calculateRelFreq()" style="flex:1;">${optHtml}</select>
+        </div>`;
+    } else if (relFreqType === 'joint') {
+      let rOpts = '', cOpts = '';
+      for (let i = 0; i < nRows; i++) rOpts += `<option value="${i}">${rowHeaders[i]}</option>`;
+      for (let j = 0; j < nCols; j++) cOpts += `<option value="${j}">${colHeaders[j]}</option>`;
+
+      container.innerHTML = `
+        <div class="row" style="margin-bottom: 4px;">
+          <label style="width: 110px;">${rVar}:</label>
+          <select id="selJointRow" onchange="calculateRelFreq()" style="flex:1;">${rOpts}</select>
+        </div>
+        <div class="row">
+          <label style="width: 110px;">${cVar}:</label>
+          <select id="selJointCol" onchange="calculateRelFreq()" style="flex:1;">${cOpts}</select>
+        </div>`;
+    } else if (relFreqType === 'conditional') {
+      let rOpts = '', cOpts = '';
+      for (let i = 0; i < nRows; i++) rOpts += `<option value="${i}">${rowHeaders[i]}</option>`;
+      for (let j = 0; j < nCols; j++) cOpts += `<option value="${j}">${colHeaders[j]}</option>`;
+
+      container.innerHTML = `
+        <div class="row" style="margin-bottom: 4px;">
+          <label style="width: 110px;">Condition By:</label>
+          <select id="selCondType" onchange="rebuildRelFreqControls(); calculateRelFreq();" style="flex:1;">
+            <option value="COL_GIVEN">Given ${cVar} (Column Group)</option>
+            <option value="ROW_GIVEN">Given ${rVar} (Row Group)</option>
+          </select>
+        </div>
+        <div id="condSubControls"></div>`;
+
+      const subContainer = document.getElementById('condSubControls');
+      const condType = document.getElementById('selCondType').value;
+
+      if (condType === 'COL_GIVEN') {
+        subContainer.innerHTML = `
+          <div class="row" style="margin-bottom: 4px;">
+            <label style="width: 110px;">Given Condition (${cVar}):</label>
+            <select id="selCondGroup" onchange="calculateRelFreq()" style="flex:1;">${cOpts}</select>
+          </div>
+          <div class="row">
+            <label style="width: 110px;">Target Value (${rVar}):</label>
+            <select id="selCondTarget" onchange="calculateRelFreq()" style="flex:1;">${rOpts}</select>
+          </div>`;
+      } else {
+        subContainer.innerHTML = `
+          <div class="row" style="margin-bottom: 4px;">
+            <label style="width: 110px;">Given Condition (${rVar}):</label>
+            <select id="selCondGroup" onchange="calculateRelFreq()" style="flex:1;">${rOpts}</select>
+          </div>
+          <div class="row">
+            <label style="width: 110px;">Target Value (${cVar}):</label>
+            <select id="selCondTarget" onchange="calculateRelFreq()" style="flex:1;">${cOpts}</select>
+          </div>`;
+      }
+    }
+  }
+
+  function calculateRelFreq() {
+    let grandTotal = 0;
+    let rTots = new Array(nRows).fill(0);
+    let cTots = new Array(nCols).fill(0);
+
+    for (let i = 0; i < nRows; i++) {
+      for (let j = 0; j < nCols; j++) {
+        const c = counts[i][j]; grandTotal += c;
+        rTots[i] += c; cTots[j] += c;
+      }
+    }
+
+    const titleEl = document.getElementById('rel-freq-title');
+    const resEl = document.getElementById('rel-freq-res');
+    const defEl = document.getElementById('rel-freq-def');
+
+    if (relFreqType === 'marginal') {
+      const catVal = document.getElementById('selMarginalCat')?.value;
+      if (!catVal) return;
+
+      const isRow = catVal.startsWith('R_');
+      const idx = parseInt(catVal.split('_')[1]);
+      const catName = isRow ? rowHeaders[idx] : colHeaders[idx];
+      const count = isRow ? rTots[idx] : cTots[idx];
+      const prop = grandTotal > 0 ? (count / grandTotal) : 0;
+
+      titleEl.innerText = `Marginal Relative Frequency: ${catName}`;
+      resEl.innerText = `${count} / ${grandTotal} = ${prop.toFixed(4)} (${(prop * 100).toFixed(1)}%)`;
+      defEl.innerText = `Definition (Section 2A): Gives the percentage or proportion of observational units in a two-way table that have a specific value for one categorical variable (divided by table grand total).`;
+
+    } else if (relFreqType === 'joint') {
+      const rIdx = parseInt(document.getElementById('selJointRow')?.value || 0);
+      const cIdx = parseInt(document.getElementById('selJointCol')?.value || 0);
+      const count = counts[rIdx][cIdx];
+      const prop = grandTotal > 0 ? (count / grandTotal) : 0;
+
+      titleEl.innerText = `Joint Relative Frequency: ${rowHeaders[rIdx]} & ${colHeaders[cIdx]}`;
+      resEl.innerText = `${count} / ${grandTotal} = ${prop.toFixed(4)} (${(prop * 100).toFixed(1)}%)`;
+      defEl.innerText = `Definition (Section 2A): Gives the percentage or proportion of observational units that have a specific value for one variable AND a specific value for the other (divided by table grand total).`;
+
+    } else if (relFreqType === 'conditional') {
+      const condType = document.getElementById('selCondType')?.value;
+      const groupIdx = parseInt(document.getElementById('selCondGroup')?.value || 0);
+      const targetIdx = parseInt(document.getElementById('selCondTarget')?.value || 0);
+
+      let count = 0, groupTotal = 0, condLabel = '', targetLabel = '';
+
+      if (condType === 'COL_GIVEN') {
+        count = counts[targetIdx][groupIdx];
+        groupTotal = cTots[groupIdx];
+        condLabel = colHeaders[groupIdx];
+        targetLabel = rowHeaders[targetIdx];
+      } else {
+        count = counts[groupIdx][targetIdx];
+        groupTotal = rTots[groupIdx];
+        condLabel = rowHeaders[groupIdx];
+        targetLabel = colHeaders[targetIdx];
+      }
+
+      const prop = groupTotal > 0 ? (count / groupTotal) : 0;
+
+      titleEl.innerText = `Conditional Relative Frequency: ${targetLabel} | Given ${condLabel}`;
+      resEl.innerText = `${count} / ${groupTotal} = ${prop.toFixed(4)} (${(prop * 100).toFixed(1)}%)`;
+      defEl.innerText = `Definition (Section 2A): Gives the percentage or proportion of observational units that have a specific value among a group sharing the same value of another variable (the condition).`;
+    }
+  }
+
+  // --- Layout Geometry & Physics ---
+  function getVennGeom() {
+    let cA = 0, cB = 0, cBoth = 0, gTot = 0;
+    for (let i = 0; i < nRows; i++) {
+      for (let j = 0; j < nCols; j++) {
+        const c = counts[i][j]; gTot += c;
+        const m = getAssignment(i, j);
+        if (m === 'A' || m === 'BOTH') cA += c;
+        if (m === 'B' || m === 'BOTH') cB += c;
+        if (m === 'BOTH') cBoth += c;
+      }
+    }
+    let rA = 100, rB = 100, dist = 110;
+    if (sizingMode === 'proportional') {
+      const tot = gTot || 1;
+      rA = 35 + 95 * Math.sqrt(cA / tot);
+      rB = 35 + 95 * Math.sqrt(cB / tot);
+      const overlap = cBoth / Math.max(1, Math.min(cA, cB));
+      dist = cBoth === 0 ? rA + rB + 30 : (rA + rB) * (1 - 0.5 * overlap);
+    }
+    return { posA: { x: W / 2 - dist / 2, y: H / 2 }, posB: { x: W / 2 + dist / 2, y: H / 2 }, rA, rB };
+  }
+
+  function getMosaicGeom() {
+    const totalDots = particles.length || 1;
+    let gTot = 0, cTots = new Array(nCols).fill(0);
+    for (let i = 0; i < nRows; i++) {
+      for (let j = 0; j < nCols; j++) { gTot += counts[i][j]; cTots[j] += counts[i][j]; }
+    }
+    const tot = gTot || 1;
+
+    const areaPerDot = 125;
+    const targetArea = totalDots * areaPerDot;
+    const aspect = 1.3;
+    let totalH = Math.sqrt(targetArea / aspect);
+    let totalW = totalH * aspect;
+
+    totalW = Math.max(140, Math.min(W - 120, totalW));
+    totalH = Math.max(110, Math.min(H - 120, totalH));
+
+    const startX = (W - totalW) / 2;
+    const startY = (H - totalH) / 2;
+
+    let boxes = {}, curX = startX;
+
+    for (let j = 0; j < nCols; j++) {
+      const w = totalW * (cTots[j] / tot), colTot = cTots[j] || 1;
+      let curY = startY;
+      for (let i = 0; i < nRows; i++) {
+        const h = totalH * (counts[i][j] / colTot);
+        boxes[`${i}_${j}`] = { x: curX, y: curY, w, h };
+        curY += h;
+      }
+      curX += w;
+    }
+    return { boxes, startX, startY, totalW, totalH, cTots, gTot: tot };
+  }
+
+  function updateTargets() {
+    const vg = getVennGeom(), mg = getMosaicGeom();
+
+    particles.forEach(p => {
+      if (viewMode === 'table') {
+        const mx = 90, my = 70, cw = (W - 2 * mx) / nCols, ch = (H - 2 * my) / nRows;
+        p.targetX = mx + cw * (p.c + 0.5); p.targetY = my + ch * (p.r + 0.5);
+      } else if (viewMode === 'venn') {
+        if (p.type === 'BOTH') { p.targetX = (vg.posA.x + vg.posB.x) / 2; p.targetY = H / 2; }
+        else if (p.type === 'A') { p.targetX = vg.posA.x - vg.rA * 0.4; p.targetY = H / 2; }
+        else if (p.type === 'B') { p.targetX = vg.posB.x + vg.rB * 0.4; p.targetY = H / 2; }
+        else { const ang = Math.random() * Math.PI * 2; p.targetX = W / 2 + 200 * Math.cos(ang); p.targetY = H / 2 + 180 * Math.sin(ang); }
+      } else if (viewMode === 'mosaic') {
+        const b = mg.boxes[`${p.r}_${p.c}`];
+        if (b) { p.targetX = b.x + b.w / 2; p.targetY = b.y + b.h / 2; }
+      }
+    });
+
+    if (simulation) { simulation.nodes(particles); simulation.alpha(0.8).restart(); }
+  }
+
+  function clamp(p, bx, by, bw, bh, rad) {
+    p.x = Math.max(bx + rad, Math.min(bx + bw - rad, p.x));
+    p.y = Math.max(by + rad, Math.min(by + bh - rad, p.y));
+  }
+
+  function clampCircle(p, cx, cy, r, inside) {
+    const dx = p.x - cx, dy = p.y - cy, dist = Math.hypot(dx, dy);
+    if (inside && dist > r && dist > 0) { p.x = cx + (dx / dist) * r; p.y = cy + (dy / dist) * r; }
+    else if (!inside && dist < r) {
+      const a = dist === 0 ? Math.random() * 6.28 : Math.atan2(dy, dx);
+      p.x = cx + Math.cos(a) * r; p.y = cy + Math.sin(a) * r;
+    }
+  }
+
+  function enforceBounds() {
+    const rad = 4;
+    if (viewMode === 'table') {
+      const mx = 90, my = 70, cw = (W - 2 * mx) / nCols, ch = (H - 2 * my) / nRows;
+      particles.forEach(p => clamp(p, mx + p.c * cw, my + p.r * ch, cw, ch, rad));
+    } else if (viewMode === 'venn') {
+      const vg = getVennGeom();
+      particles.forEach(p => {
+        if (p.type === 'A') { clampCircle(p, vg.posA.x, vg.posA.y, vg.rA - rad, true); clampCircle(p, vg.posB.x, vg.posB.y, vg.rB + rad, false); }
+        else if (p.type === 'B') { clampCircle(p, vg.posB.x, vg.posB.y, vg.rB - rad, true); clampCircle(p, vg.posA.x, vg.posA.y, vg.rA + rad, false); }
+        else if (p.type === 'BOTH') { clampCircle(p, vg.posA.x, vg.posA.y, vg.rA - rad, true); clampCircle(p, vg.posB.x, vg.posB.y, vg.rB - rad, true); }
+        else { clampCircle(p, vg.posA.x, vg.posA.y, vg.rA + rad, false); clampCircle(p, vg.posB.x, vg.posB.y, vg.rB + rad, false); clamp(p, 25, 25, W - 50, H - 50, rad); }
+      });
+    } else if (viewMode === 'mosaic') {
+      const mg = getMosaicGeom();
+      particles.forEach(p => { 
+        const b = mg.boxes[`${p.r}_${p.c}`]; 
+        if (b && b.w > 2 * rad && b.h > 2 * rad) clamp(p, b.x, b.y, b.w, b.h, rad); 
+      });
+    }
+  }
+
+  function setupSim() {
+    simulation = d3.forceSimulation(particles)
+      .force("x", d3.forceX(d => d.targetX).strength(0.08))
+      .force("y", d3.forceY(d => d.targetY).strength(0.08))
+      .force("collide", d3.forceCollide(5))
+      .alphaDecay(0.02)
+      .on("tick", () => { enforceBounds(); render(); });
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.strokeStyle = '#334155'; ctx.lineWidth = 2;
+    ctx.strokeRect(20, 20, W - 40, H - 40);
+    ctx.fillStyle = '#94a3b8'; ctx.font = '12px sans-serif';
+    ctx.fillText('Sample Space (S)', 30, 38);
+
+    if (viewMode === 'table') drawTableGrid();
+    else if (viewMode === 'venn') drawVennDiagram();
+    else if (viewMode === 'mosaic') drawMosaicPlot();
+
+    particles.forEach(p => {
+      ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, 2 * Math.PI);
+      if (p.highlighted) {
+        ctx.fillStyle = p.color; ctx.globalAlpha = 1.0;
+      } else {
+        ctx.fillStyle = '#334155'; ctx.globalAlpha = 0.25;
+      }
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1.0;
+  }
+
+  function drawTableGrid() {
+    const mx = 90, my = 70, cw = (W - 2 * mx) / nCols, ch = (H - 2 * my) / nRows;
+    ctx.strokeStyle = '#334155'; ctx.lineWidth = 1;
+    for (let j = 1; j < nCols; j++) { ctx.beginPath(); ctx.moveTo(mx + cw * j, my); ctx.lineTo(mx + cw * j, H - my); ctx.stroke(); }
+    for (let i = 1; i < nRows; i++) { ctx.beginPath(); ctx.moveTo(mx, my + ch * i); ctx.lineTo(W - mx, my + ch * i); ctx.stroke(); }
+
+    ctx.fillStyle = '#94a3b8'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center';
+    for (let j = 0; j < nCols; j++) ctx.fillText(colHeaders[j], mx + cw * (j + 0.5), my - 10);
+    ctx.textAlign = 'right';
+    for (let i = 0; i < nRows; i++) ctx.fillText(rowHeaders[i], mx - 10, my + ch * (i + 0.5));
+    ctx.textAlign = 'left';
+  }
+
+  function drawVennDiagram() {
+    const vg = getVennGeom();
+    const setA = document.getElementById('setAName').value || 'Set A';
+    const setB = document.getElementById('setBName').value || 'Set B';
+
+    ctx.beginPath(); ctx.arc(vg.posA.x, vg.posA.y, vg.rA, 0, 2 * Math.PI);
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.1)'; ctx.fill();
+    ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.stroke();
+
+    ctx.beginPath(); ctx.arc(vg.posB.x, vg.posB.y, vg.rB, 0, 2 * Math.PI);
+    ctx.fillStyle = 'rgba(244, 63, 94, 0.1)'; ctx.fill();
+    ctx.strokeStyle = '#f43f5e'; ctx.lineWidth = 2; ctx.stroke();
+
+    ctx.fillStyle = '#38bdf8'; ctx.font = 'bold 13px sans-serif';
+    ctx.fillText(setA, vg.posA.x - vg.rA * 0.5, vg.posA.y - vg.rA - 8);
+    ctx.fillStyle = '#f43f5e';
+    ctx.fillText(setB, vg.posB.x + vg.rB * 0.2, vg.posB.y - vg.rB - 8);
+  }
+
+  function drawMosaicPlot() {
+    const mg = getMosaicGeom();
+    ctx.lineWidth = 1.5; ctx.font = '11px sans-serif';
+
+    const cVar = document.getElementById('colVar').value || "Col Var";
+
+    ctx.fillStyle = '#facc15'; ctx.textAlign = 'center';
+    ctx.fillText(`${cVar} (Mosaic Containers)`, W / 2, H - 22);
+
+    for (let j = 0; j < nCols; j++) {
+      const cTot = mg.cTots[j];
+      if (cTot === 0) continue;
+
+      for (let i = 0; i < nRows; i++) {
+        const b = mg.boxes[`${i}_${j}`];
+        if (!b || b.w <= 0 || b.h <= 0) continue;
+
+        ctx.strokeStyle = '#475569';
+        ctx.strokeRect(b.x, b.y, b.w, b.h);
+
+        if (b.w > 28 && b.h > 16) {
+          ctx.fillStyle = '#94a3b8'; ctx.textAlign = 'center';
+          const pct = ((counts[i][j] / cTot) * 100).toFixed(0);
+          ctx.fillText(`${pct}%`, b.x + b.w / 2, b.y + b.h / 2 + 4);
+        }
+      }
+
+      const topB = mg.boxes[`0_${j}`];
+      if (topB && topB.w > 20) {
+        ctx.fillStyle = '#38bdf8'; ctx.textAlign = 'center';
+        ctx.fillText(colHeaders[j], topB.x + topB.w / 2, mg.startY - 8);
+      }
+    }
+  }
+
+  function setView(mode) {
+    viewMode = mode;
+    ['btnTable', 'btnVenn', 'btnMosaic'].forEach(id => document.getElementById(id).classList.remove('active'));
+    document.getElementById(mode === 'table' ? 'btnTable' : (mode === 'venn' ? 'btnVenn' : 'btnMosaic')).classList.add('active');
+    updateTargets();
+  }
+
+  function setSizing(mode) {
+    sizingMode = mode;
+    document.getElementById('btnFixed').classList.toggle('active', mode === 'fixed');
+    document.getElementById('btnProp').classList.toggle('active', mode === 'proportional');
+    updateTargets();
+  }
+
+  window.onload = init;
+</script>
+</body>
+</html>
